@@ -152,6 +152,12 @@ int main()
     };
     joining.head.length = sizeof(joining);
 
+    MoveEvent moving
+    {
+        Move,
+        {x, y},
+    }
+
     // while loop to send data
     char buf[9123];
 
@@ -161,12 +167,15 @@ int main()
     //recive from linux server
     recv(sock, buf, sizeof(buf), 0);
     MsgHead* msg = (MsgHead*)buf;
-    cout << msg << endl;
+    int clientid = msg->id;
 
     //send to java client
     string input;
     getline(cin, input);
+    if (input == "move" || input == "Move")
+    {
 
+    }
 
     // Close everything
     closesocket(sock);

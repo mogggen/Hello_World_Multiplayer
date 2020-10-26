@@ -1,6 +1,15 @@
-//Enums och constants
+#include <iostream>
+#include <ctime>
+#include <string>
+#include <cstring>
+#include <WS2tcpip.h>
+#include <thread>
+#pragma comment(lib, "ws2_32.lib")
 
+//Enums och constants
 #define MAXNAMELEN  32 
+
+using namespace std;
 
 int main()
 {
@@ -84,7 +93,7 @@ int main()
     //Variantions of EventMsg
     struct MoveEvent {
         EventMsg event;
-        Coordinate pos;         //Newo bject position
+        Coordinate pos;         //New object position
         Coordinate dir;         //New object direction
     };
     //TEXT MESSAGE
@@ -92,4 +101,75 @@ int main()
         MsgHead head;
         char text[1];   //NULL-terminerad array of chars.
     };
+
+
+
+
+
+    string ipAddress = "130.240.40.7";// IP Address of the server
+    int port = 49152;// Listening port on the server
+
+    // Initialize WinSock
+    WSAData data;
+    WORD ver = MAKEWORD(2, 2);
+    int wsResult = WSAStartup(ver, &data);
+    if (wsResult != 0)
+    {
+        cerr << "Can't start Winsock, Err #" << wsResult << endl;
+        return 0;
+    }
+
+    // Create socket
+    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    // Fill in a hint structure
+    sockaddr_in hint;
+    hint.sin_family = AF_INET;
+    hint.sin_port = htons(port);
+    inet_pton(AF_INET, ipAddress.c_str(), &hint.sin_addr);
+
+    // Error Handeling
+    int conRes = connect(sock, (sockaddr*)&hint, sizeof(hint));
+    if (conRes == SOCKET_ERROR)
+    {
+        string prompt = "Can't connect to server, Error: ";
+        int error = WSAGetLastError();
+        if (error == 10061)
+            cerr << prompt << "timeout" << endl;
+        else
+            cerr << prompt << '#' << error << endl;
+        closesocket(sock);
+        WSACleanup();
+        return 0;
+    }
+
+    JoinMsg joining
+    {
+        {0, 0, 0, Join},
+        Human,
+        Pyramid,
+        "Connor"
+    };
+    joining.head.length = sizeof(joining);
+
+    // while loop to send data
+    char buf[9123];
+
+    //send to linux server
+    send(sock, (char*)&joining, joining.head.length, 0);
+    
+    //recive from linux server
+    recv(sock, buf, sizeof(buf), 0);
+    MsgHead* msg = (MsgHead*)buf;
+    cout << msg << endl;
+
+    //send to java client
+    string input;
+    getline(cin, input);
+
+
+    // Close everything
+    closesocket(sock);
+    WSACleanup();
+    return 0;
 }

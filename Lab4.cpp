@@ -9,8 +9,6 @@
 //Enums och constants
 #define MAXNAMELEN  32 
 
-
-
 enum ObjectDesc {
     Human,
     NonHuman,
@@ -19,10 +17,10 @@ enum ObjectDesc {
 };
 
 enum ObjectForm {
-Cube,
-Sphere,
-Pyramid,
-Cone
+    Cube,
+    Sphere,
+    Pyramid,
+    Cone
 };
 
 struct Coordinate {
@@ -128,7 +126,7 @@ void move(SOCKET sock, Coordinate cord, int clientid)
 int main()
 {
     string ipAddress = "130.240.40.7";  // IP Address of the server
-    int LinuxPort = 49152;                   // Linux Server port
+    int LinuxPort = 49153;                   // Linux Server port
 
     // Initialize WinSock
     WSAData data;
@@ -246,4 +244,3 @@ int main()
     WSACleanup();
     return 0;
 }
-

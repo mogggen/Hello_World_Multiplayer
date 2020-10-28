@@ -10,237 +10,299 @@
 #define MAXNAMELEN  32 
 
 enum ObjectDesc {
-    Human,
-    NonHuman,
-    Vehicle,
-    StaticObject
+	Human,
+	NonHuman,
+	Vehicle,
+	StaticObject
 };
 
 enum ObjectForm {
-    Cube,
-    Sphere,
-    Pyramid,
-    Cone
+	Cube,
+	Sphere,
+	Pyramid,
+	Cone
 };
 
 struct Coordinate {
-    int x;
-    int y;
+	int x;
+	int y;
 };
 
 enum MsgType {
-    Join,           //Client joining game at server
-    Leave,          //Client leaving game
-    Change,         //Information to clients
-    Event,          //Information from clients to server
-    TextMessage     //Send text messages to one or all
+	Join,           //Client joining game at server
+	Leave,          //Client leaving game
+	Change,         //Information to clients
+	Event,          //Information from clients to server
+	TextMessage     //Send text messages to one or all
 };
 //MESSAGE HEAD, Included first in all messages   
 struct MsgHead {
-    unsigned int length;     //Total length for whole message   
-    unsigned int seqNo;      //Sequence number
-    unsigned int id;         //Client ID or 0;
-    MsgType type;            //Type of message
+	unsigned int length;     //Total length for whole message   
+	unsigned int seqNo;      //Sequence number
+	unsigned int id;         //Client ID or 0;
+	MsgType type;            //Type of message
 };
 //JOIN MESSAGE (CLIENT->SERVER)
 struct JoinMsg {
-    MsgHead head;
-    ObjectDesc desc;
-    ObjectForm form;
-    char name[MAXNAMELEN];   //null terminated!,or empty
+	MsgHead head;
+	ObjectDesc desc;
+	ObjectForm form;
+	char name[MAXNAMELEN];   //null terminated!,or empty
 };
 //LEAVE MESSAGE (CLIENT->SERVER)
 struct LeaveMsg {
-    MsgHead head;
+	MsgHead head;
 };
 //CHANGE MESSAGE (SERVER->CLIENT)
 enum ChangeType {
-    NewPlayer,
-    PlayerLeave,
-    NewPlayerPosition
+	NewPlayer,
+	PlayerLeave,
+	NewPlayerPosition
 };
 //Included first in all Change messages
 struct ChangeMsg {
-    MsgHead head;
-    ChangeType type;
+	MsgHead head;
+	ChangeType type;
 };
 
 struct NewPlayerMsg {
-    ChangeMsg msg;          //Change message header with new client id
-    ObjectDesc desc;
-    ObjectForm form;
-    char name[MAXNAMELEN];  //nullterminated!,or empty
+	ChangeMsg msg;          //Change message header with new client id
+	ObjectDesc desc;
+	ObjectForm form;
+	char name[MAXNAMELEN];  //nullterminated!,or empty
 };
 struct PlayerLeaveMsg {
-    ChangeMsg msg;          //Change message header with new client id
+	ChangeMsg msg;          //Change message header with new client id
 };
 struct NewPlayerPositionMsg {
-    ChangeMsg msg;          //Change message header
-    Coordinate pos;         //New object position
-    Coordinate dir;         //New object direction
+	ChangeMsg msg;          //Change message header
+	Coordinate pos;         //New object position
+	Coordinate dir;         //New object direction
 };
 //EVENT MESSAGE (CLIENT->SERVER)
 enum EventType { Move };
 //Included first in all Event messages
 struct EventMsg {
-    MsgHead head;
-    EventType type;
+	MsgHead head;
+	EventType type;
 };
 //Variantions of EventMsg
 struct MoveEvent {
-    EventMsg event;
-    Coordinate pos;         //New object position
-    Coordinate dir;         //New object direction
+	EventMsg event;
+	Coordinate pos;         //New object position
+	Coordinate dir;         //New object direction
 };
 //TEXT MESSAGE
 struct TextMessageMsg {
-    MsgHead head;
-    char text[1];   //NULL-terminerad array of chars.
+	MsgHead head;
+	char text[1];   //NULL-terminerad array of chars.
 };
 
 using namespace std;
 
+int x, y;
+bool isFinished = false;
+
 void ReadServer(SOCKET sock)
 {
-    NewPlayerPositionMsg* msg;
-    char buf[MAXNAMELEN];
-    recv(sock, buf, sizeof(buf), 0);
-    msg = (NewPlayerPositionMsg*)buf;
+	char buf[192];
+	MsgHead* msgHead = (MsgHead*)buf;
 
-    cout << "x = " << msg->pos.x << " y = " << msg->pos.y << endl;
+	ChangeMsg* changeMsg = (ChangeMsg*)buf;
+	
+	NewPlayerMsg* newPlayerMsg = (NewPlayerMsg*)buf;
+	PlayerLeaveMsg* playerLeaveMsg = (PlayerLeaveMsg*)buf;
+	NewPlayerPositionMsg* newPlayerPositionMsg = (NewPlayerPositionMsg*)buf;
+	int id = -1;
+
+	
+	while (!isFinished)
+	{
+		recv(sock, buf, sizeof(buf), 0);
+		//cout << "\n\n" << "length of Msg: ";
+		/*for (int i = 0; i < 256; i++)
+		{
+			if (buf[i] == -52)
+			{
+				cout << "length: " << i;
+				break;
+			}
+			cout << (int)buf[i] << ";";
+		}
+		cout << "\n\n\n";*/
+		switch (changeMsg->type)
+		{
+		case NewPlayer:
+			cout << '[' << newPlayerMsg->msg.head.seqNo << "]:\t" <<
+				newPlayerMsg->name << " joined\tId=" << newPlayerMsg->msg.head.id << "" << endl;
+			id = newPlayerMsg->msg.head.id;
+			break;
+
+		case PlayerLeave:
+			cout << '[' << playerLeaveMsg->msg.head.seqNo << "]:\tleft server\tId=" << playerLeaveMsg->msg.head.id << endl;
+			break;
+
+		case NewPlayerPosition:
+			cout << '[' << newPlayerPositionMsg->msg.head.seqNo << "]:\tpos:(";
+
+			cout << newPlayerPositionMsg->pos.x << ";";
+			cout << newPlayerPositionMsg->pos.y << ")\tid=" << newPlayerPositionMsg->msg.head.id << endl;
+			if (newPlayerPositionMsg->msg.head.id == id)
+			{
+				x = newPlayerPositionMsg->pos.x;
+				y = newPlayerPositionMsg->pos.y;
+			}
+			break;
+
+		default:
+			cout << "pause debugger..." << endl;
+			cin.get();
+			break;
+		}
+		
+	}
 }
 
-void move(SOCKET sock, Coordinate cord, int clientid)
+void SendAndReciveToGUI(SOCKET sock)
 {
-    MoveEvent moving =
-    {
-        {{0, 0, clientid, Event}, Move},
-        {cord},
-        {0, 0}
-    };
-    moving.event.head.length = sizeof(MoveEvent);
-    send(sock, (char*)&moving, moving.event.head.length, 0);
+
+}
+
+void move(SOCKET sock, int clientid)
+{
+	MoveEvent moving =
+	{
+		{{0, 0, clientid, Event}, Move},
+		{x, y},
+		{0, 0}
+	};
+	moving.event.head.length = sizeof(MoveEvent);
+	send(sock, (char*)&moving, moving.event.head.length, 0);
+}
+
+void leave(SOCKET sock, int clientid)
+{
+	LeaveMsg leaveMsg =
+	{
+		{0, 0, clientid, Leave}
+	};
+	leaveMsg.head.length = sizeof(LeaveMsg);
+	send(sock, (char*)&leaveMsg, leaveMsg.head.length, 0);
 }
 
 
 int main()
 {
-    string ipAddress = "130.240.40.7";  // IP Address of the server
-    int LinuxPort = 49153;                   // Linux Server port
+	string ipAddress = "130.240.40.7";  // IP Address of the server
+	int LinuxPort = 49152;              // Linux Server port
 
-    // Initialize WinSock
-    WSAData data;
-    WORD ver = MAKEWORD(2, 2);
-    int wsResult = WSAStartup(ver, &data);
-    if (wsResult != 0)
-    {
-        cerr << "Can't start Winsock, Err #" << wsResult << endl;
-        return 0;
-    }
+	// Initialize WinSock
+	WSAData data;
+	WORD ver = MAKEWORD(2, 2);
+	int wsResult = WSAStartup(ver, &data);
+	if (wsResult != 0)
+	{
+		cerr << "Can't start Winsock, Err #" << wsResult << endl;
+		return 0;
+	}
 
-    // Create socket
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+	// Create socket
+	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
 
-    // Fill in a hint structure
-    sockaddr_in sockaddr_in;
-    sockaddr_in.sin_family = AF_INET;
-    sockaddr_in.sin_port = htons(LinuxPort);
-    inet_pton(AF_INET, ipAddress.c_str(), &sockaddr_in.sin_addr);
+	// Fill in a hint structure
+	sockaddr_in sockaddr_in;
+	sockaddr_in.sin_family = AF_INET;
+	sockaddr_in.sin_port = htons(LinuxPort);
+	inet_pton(AF_INET, ipAddress.c_str(), &sockaddr_in.sin_addr);
 
-    // Error Handeling
-    int conRes = connect(sock, (sockaddr*)&sockaddr_in, sizeof(sockaddr_in));
-    if (conRes == SOCKET_ERROR)
-    {
-        string prompt = "Can't connect to server, Error: ";
-        int error = WSAGetLastError();
-        if (error == 10061)
-            cerr << prompt << "timeout" << endl;
-        else
-            cerr << prompt << '#' << error << endl;
-        closesocket(sock);
-        WSACleanup();
-        return 0;
-    }
+	// Error Handeling
+	int conRes = connect(sock, (sockaddr*)&sockaddr_in, sizeof(sockaddr_in));
+	if (conRes == SOCKET_ERROR)
+	{
+		string prompt = "Can't connect to server, Error: ";
+		int error = WSAGetLastError();
+		if (error == 10061)
+			cerr << prompt << "timeout" << endl;
+		else
+			cerr << prompt << '#' << error << endl;
+		closesocket(sock);
+		WSACleanup();
+		return 0;
+	}
 
-    int x = -100, y = -100; //set from recv() later
-    Coordinate cord{ x, y };
-    char buf[MAXNAMELEN];
-    char command[MAXNAMELEN];
+	char buf[MAXNAMELEN];
+	char command[MAXNAMELEN];
 
-    thread listen(ReadServer, sock);
+	JoinMsg joining
+	{
+		{0, 0, 0, Join},
+		Human,
+		Pyramid,
+		"Lisa"
+	};
+	joining.head.length = sizeof(joining);
 
-    JoinMsg joining
-    {
-        {0, 0, 0, Join},
-        Human,
-        Pyramid,
-        "Connor"
-    };
-    joining.head.length = sizeof(joining);
+	send(sock, (char*)&joining, joining.head.length, 0);
+	recv(sock, buf, sizeof(buf), 0);
+	MsgHead* msgHead = (MsgHead*)buf;
 
-    send(sock, (char*)&joining, joining.head.length, 0);
-    recv(sock, buf, sizeof(buf), 0);
-    MsgHead* msgHead = (MsgHead*)buf;
+	int clientid = msgHead->id;
+	joining.head.id = clientid;
+		
+	thread listen(ReadServer, sock);
+	thread GUI(SendAndReciveToGUI, sock); //coming soon
+	Sleep(1000);
+	// while loop to send data
+	while (!isFinished)
+	{
+		//send to linux server
 
-    int clientid = msgHead->id;
-    joining.head.id = clientid;
 
-    cout << "id: " << msgHead->id << endl;
-    cout << "length: " << msgHead->length << endl;
-    cout << "seqNo: " << msgHead->seqNo << endl;
-    cout << "type: " << msgHead->type << endl << endl;
+		scanf_s("%s", command, 16);
+		for (char i = 0; i < sizeof(command) / sizeof(char); i++)
+		{
+			command[i] = tolower(command[i]);
+		}
 
-        
-        
-    // while loop to send data
-    while (true)
-    {
-        //send to linux server
-            
+		if (strcmp(command, "moveu") == 0)
+		{
+			y += 1;
+			move(sock, clientid);
+		}
+		else if (strcmp(command, "moved") == 0)
+		{
+			y -= 1;
+			move(sock, clientid);
+		}
+		else if (strcmp(command, "movel") == 0)
+		{
+			x -= 1;
+			move(sock, clientid);
+		}
+		else if (strcmp(command, "mover") == 0)
+		{
+			x += 1;
+			move(sock, clientid);
+		}
 
-        //recive from linux server
-        //recv(sock, buf, sizeof(buf), 0);
+		else if (strcmp(command, "leave") == 0)
+		{
+			//leave(sock, clientid);
+			isFinished = true;
+		}
+		else
+		{
+			cout << "Unknown command: \'" << command << "\'\n";
+		}
+		//recive from linux server
 
-        cout << "> ";
-        scanf_s("%s", command, 16);
-        for (char i = 0; i < sizeof(command) / sizeof(char); i++)
-        {
-            command[i] = tolower(command[i]);
-        }
+		//send to java client
+	}
 
-        if (strcmp(command, "moveu") == 0)
-        {
-            cord.y += 1;
-            move(sock, cord, clientid);
-        }
-        if (strcmp(command, "moved") == 0)
-        {
-            cord.y -= 1;
-            move(sock, cord, clientid);
-        }
-        if (strcmp(command, "movel") == 0)
-        {
-            cord.x -= 1;
-            move(sock, cord, clientid);
-        }
-        if (strcmp(command, "mover") == 0)
-        {
-            cord.x += 1;
-            move(sock, cord, clientid);
-        }
-
-        if (strcmp(command, "leave") == 0)
-        {
-
-        }
-            
-        //send to java client
-    }
-
-    // Close everything
-    listen.join();
-    Sleep(500);
-    closesocket(sock);
-    WSACleanup();
-    return 0;
+	// Close everything
+	listen.join();
+	Sleep(500);
+	closesocket(sock);
+	WSACleanup();
+	return 0;
 }

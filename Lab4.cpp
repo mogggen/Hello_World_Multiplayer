@@ -130,7 +130,7 @@ void leave(SOCKET sock, int clientid)
 
 void ReadServer(SOCKET sock)
 {
-	char buf[192];
+	char buf[2048];
 	MsgHead* msgHead = (MsgHead*)buf;
 
 	ChangeMsg* changeMsg = (ChangeMsg*)buf;
@@ -143,24 +143,26 @@ void ReadServer(SOCKET sock)
 	
 	while (!isFinished)
 	{
-		recv(sock, buf, sizeof(buf), 0);
-		//cout << "\n\n" << "length of Msg: ";
-		/*for (int i = 0; i < 256; i++)
+		int count = recv(sock, buf, sizeof(buf), 0);
+		std::cout << "\n\n" << "length of Msg: ";
+		for (int i = 0; i < 256; i++)
 		{
 			if (buf[i] == -52)
 			{
-				cout << "length: " << i;
+				std::cout << "length: " << i;
 				break;
 			}
-			cout << (int)buf[i] << ";";
+			std::cout << (int)buf[i] << ";";
 		}
-		cout << "\n\n\n";*/
+		std::cout << "\n\n\n";
 		using namespace std;
+		while (true)
+		{
 		switch (changeMsg->type)
 		{
 		case NewPlayer:
-			cout << '[' << newPlayerMsg->msg.head.seqNo << "]:\t" <<
-				newPlayerMsg->name << " joined\tId=" << newPlayerMsg->msg.head.id << "" << endl;
+			std::cout << '[' << newPlayerMsg->msg.head.seqNo << "]:\t" <<
+				newPlayerMsg->name << " joined\tId=" << newPlayerMsg->msg.head.id << " " << endl;
 			if (id == -1)
 			{
 				id = newPlayerMsg->msg.head.id;
@@ -170,14 +172,14 @@ void ReadServer(SOCKET sock)
 			break;
 
 		case PlayerLeave:
-			cout << '[' << playerLeaveMsg->msg.head.seqNo << "]:\tleft server\tId=" << playerLeaveMsg->msg.head.id << endl;
+			std::cout << '[' << playerLeaveMsg->msg.head.seqNo << "]:\tleft server\tId=" << playerLeaveMsg->msg.head.id << endl;
 			break;
 
 		case NewPlayerPosition:
-			cout << '[' << newPlayerPositionMsg->msg.head.seqNo << "]:\tpos:(";
+			std::cout << '[' << newPlayerPositionMsg->msg.head.seqNo << "]:\tpos:(";
 
-			cout << newPlayerPositionMsg->pos.x << ";";
-			cout << newPlayerPositionMsg->pos.y << ")\tid=" << newPlayerPositionMsg->msg.head.id << endl;
+			std::cout << newPlayerPositionMsg->pos.x << ";";
+			std::cout << newPlayerPositionMsg->pos.y << ")\tid=" << newPlayerPositionMsg->msg.head.id << endl;
 			if (newPlayerPositionMsg->msg.head.id == id)
 			{
 				x = newPlayerPositionMsg->pos.x;
@@ -186,11 +188,18 @@ void ReadServer(SOCKET sock)
 			break;
 
 		default:
-			cout << "pause debugger..." << endl;
+			std::cout << "pause debugger..." << endl;
 			cin.get();
 			break;
 		}
-		
+
+		msgHead = (MsgHead*)((char*)msgHead + msgHead->length);
+
+		newPlayerMsg = (NewPlayerMsg*)msgHead;
+		playerLeaveMsg = (PlayerLeaveMsg*)msgHead;
+		newPlayerPositionMsg = (NewPlayerPositionMsg*)msgHead;
+		if (msgHead > (MsgHead*)(buf + 512)) break;
+		}
 	}
 }
 

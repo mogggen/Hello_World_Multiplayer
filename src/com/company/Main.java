@@ -1,11 +1,11 @@
 package com.company;
+
 import javax.swing.*;
 import java.awt.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.rmi.server.ExportException;
 import java.util.ArrayList;
 
 public class Main extends JComponent
@@ -17,7 +17,6 @@ public class Main extends JComponent
         // class constructor
         public GUI()
         {
-
             canvas.setBounds(0, 0, 201, 201);
             frame.setSize(201, 201);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -50,9 +49,9 @@ public class Main extends JComponent
             return c;
         }
     }
-    static int Fit(int input, int inputStart, int inputEnd, float outputStart, float outputEnd)
+    static int Fit(int input, int inputStart, int inputEnd)
     {
-        return (int)(outputStart + (outputEnd - outputStart) / (inputEnd - inputStart) * (input - inputStart));
+        return (int)(((float) 255) / (inputEnd - inputStart) * (input - inputStart));
     }
     //handles the drawing of the input value
     static class PixelCanvas extends JComponent
@@ -64,8 +63,6 @@ public class Main extends JComponent
             this.arr = arr;
         }
 
-
-
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
@@ -74,8 +71,8 @@ public class Main extends JComponent
                     if (pixel.c == 0) {
                         return;
                     }
-                    int up = Fit(pixel.getC(), 1, 8, 0, 255);
-                    int down = Fit(pixel.getC(), 8, 1, 0, 255);
+                    int up = Fit(pixel.getC(), 1, 16);
+                    int down = Fit(pixel.getC(), 16, 1);
                     g.setColor(new Color(down,up,down));
                     g.fillRect(pixel.getX(), pixel.getY(), 10, 10);
                 }
@@ -106,10 +103,10 @@ public class Main extends JComponent
         //Reads Bytes from the input stream
         public void listen(GUI window) throws IOException {
             byte temp;
-                for (byte i = 0; i < 3; i++) {
-                    temp = (byte) in.read();
-                    byteBuf.add(temp);
-                }
+            for (byte i = 0; i < 3; i++) {
+                temp = (byte) in.read();
+                byteBuf.add(temp);
+            }
 
             //Reformat
             for (int k = 0; k < byteBuf.size(); k += 3) {
@@ -122,23 +119,14 @@ public class Main extends JComponent
         }
     }
 
-    public static void main(String[] args) throws IOException{
+    public static void main(String[] args) throws IOException, InterruptedException {
 
         GUI window = new GUI();
         Server server = new Server(4999);
         new Main();
         while(true) {
-            try {
                 Thread.sleep(1000);
                 server.listen(window);
-            }catch (ExportException e){
-                System.out.println(e);
-                break;
-            }
-            catch (Exception e){
-                System.out.println(e);
-                return;
-            }
         }
     }
 }

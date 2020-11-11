@@ -22,7 +22,7 @@
 mono_crash.*
 
 # Build results
-[Bd]uild/
+[Bb]uild/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -366,3 +366,4 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/[Bd]uild/

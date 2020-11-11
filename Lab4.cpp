@@ -130,7 +130,7 @@ void leave(SOCKET sock, int clientid)
 
 void ConnectServer(SOCKET sock)
 {
-	char buf[2048];
+	char buf[192];
 	MsgHead* msgHead = (MsgHead*)buf;
 
 	ChangeMsg* changeMsg = (ChangeMsg*)buf;
@@ -143,62 +143,59 @@ void ConnectServer(SOCKET sock)
 	
 	while (!isFinished)
 	{
+		msgHead = (MsgHead*)buf;
+
+		changeMsg = (ChangeMsg*)buf;
+
+		newPlayerMsg = (NewPlayerMsg*)buf;
+		playerLeaveMsg = (PlayerLeaveMsg*)buf;
+		newPlayerPositionMsg = (NewPlayerPositionMsg*)buf;
+
 		int count = recv(sock, buf, sizeof(buf), 0);
-		std::cout << "\n\n" << "length of Msg: ";
-		for (int i = 0; i < 256; i++)
+		using namespace std;
+		while (msgHead <= (MsgHead*)(buf + sizeof(buf) / sizeof(*buf)))
 		{
-			if (buf[i] == -52)
+			switch (changeMsg->type)
 			{
-				std::cout << "length: " << i;
+			case NewPlayer:
+				std::cout << '[' << newPlayerMsg->msg.head.seqNo << "]:\t" <<
+					newPlayerMsg->name << " joined\tId=" << newPlayerMsg->msg.head.id << " " << endl;
+				//for each (client c in clientList)
+				if (id == -1)
+				{
+					id = newPlayerMsg->msg.head.id;
+					SetConsoleTitle((string(newPlayerMsg->name) + string(": id=") + to_string(id)).c_str());
+					move(sock, id); // dummy command to recive the player coordinates
+				}
+				break;
+
+			case PlayerLeave:
+				std::cout << '[' << playerLeaveMsg->msg.head.seqNo << "]:\tleft server\tId=" << playerLeaveMsg->msg.head.id << endl;
+				break;
+
+			case NewPlayerPosition:
+				std::cout << '[' << newPlayerPositionMsg->msg.head.seqNo << "]:\tpos:(";
+
+				std::cout << newPlayerPositionMsg->pos.x << ";";
+				std::cout << newPlayerPositionMsg->pos.y << ")\tid=" << newPlayerPositionMsg->msg.head.id << endl;
+				if (newPlayerPositionMsg->msg.head.id == id)
+				{
+					x = newPlayerPositionMsg->pos.x;
+					y = newPlayerPositionMsg->pos.y;
+				}
+				break;
+
+			default:
+				std::cout << "pause debugger..." << endl;
+				cin.get();
 				break;
 			}
-			std::cout << (int)buf[i] << ";";
-		}
-		std::cout << "\n\n\n";
-		using namespace std;
-		while (true)
-		{
-		switch (changeMsg->type)
-		{
-		case NewPlayer:
-			std::cout << '[' << newPlayerMsg->msg.head.seqNo << "]:\t" <<
-				newPlayerMsg->name << " joined\tId=" << newPlayerMsg->msg.head.id << " " << endl;
-			if (id == -1)
-			{
-				id = newPlayerMsg->msg.head.id;
-				SetConsoleTitle((string(newPlayerMsg->name) + string(": id=") + to_string(id)).c_str());
-				move(sock, id); // dummy command to recive the player coordinates
-			}
-			break;
 
-		case PlayerLeave:
-			std::cout << '[' << playerLeaveMsg->msg.head.seqNo << "]:\tleft server\tId=" << playerLeaveMsg->msg.head.id << endl;
-			break;
+			msgHead = (MsgHead*)(msgHead + msgHead->length);
 
-		case NewPlayerPosition:
-			std::cout << '[' << newPlayerPositionMsg->msg.head.seqNo << "]:\tpos:(";
-
-			std::cout << newPlayerPositionMsg->pos.x << ";";
-			std::cout << newPlayerPositionMsg->pos.y << ")\tid=" << newPlayerPositionMsg->msg.head.id << endl;
-			if (newPlayerPositionMsg->msg.head.id == id)
-			{
-				x = newPlayerPositionMsg->pos.x;
-				y = newPlayerPositionMsg->pos.y;
-			}
-			break;
-
-		default:
-			std::cout << "pause debugger..." << endl;
-			cin.get();
-			break;
-		}
-
-		msgHead = (MsgHead*)((char*)msgHead + msgHead->length);
-
-		newPlayerMsg = (NewPlayerMsg*)msgHead;
-		playerLeaveMsg = (PlayerLeaveMsg*)msgHead;
-		newPlayerPositionMsg = (NewPlayerPositionMsg*)msgHead;
-		if (msgHead > (MsgHead*)(buf + 512)) break;
+			newPlayerMsg = (NewPlayerMsg*)msgHead;
+			playerLeaveMsg = (PlayerLeaveMsg*)msgHead;
+			newPlayerPositionMsg = (NewPlayerPositionMsg*)msgHead;
 		}
 	}
 }
@@ -208,8 +205,11 @@ void ConnectServer(SOCKET sock)
 using namespace std;
 int main()
 {
-	string ipAddress = "130.240.40.7";  // IP Address of the server
-	int LinuxPort = 49152;              // Linux Server port
+	string ipAddress = "130.240.40.7";	// IP Address of the server
+	int LinuxPort = 49152;           // Linux Server port
+
+	ipAddress = "127.0.0.1";
+	LinuxPort = 9002;
 
 	// Initialize WinSock
 	WSAData data;

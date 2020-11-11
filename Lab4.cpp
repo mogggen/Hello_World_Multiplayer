@@ -101,7 +101,7 @@ struct TextMessageMsg {
 int x, y;
 bool isFinished = false;
 
-void SendAndReciveToGUI(SOCKET sock)
+void ConnectGUI(SOCKET sock)
 {
 
 }
@@ -128,7 +128,7 @@ void leave(SOCKET sock, int clientid)
 	send(sock, (char*)&leaveMsg, leaveMsg.head.length, 0);
 }
 
-void ReadServer(SOCKET sock)
+void ConnectServer(SOCKET sock)
 {
 	char buf[2048];
 	MsgHead* msgHead = (MsgHead*)buf;
@@ -270,8 +270,8 @@ int main()
 	// FD_CLR
 	// FD_ZERO
 	// FD_SET
-	thread listen(ReadServer, sock);
-	thread GUI(SendAndReciveToGUI, sock); //coming soon
+	thread listen(ConnectServer, sock);
+	thread GUI(ConnectGUI, sock); //coming soon
 	//
 
 	Sleep(1000);
@@ -279,36 +279,34 @@ int main()
 	while (!isFinished)
 	{
 		//send to linux server
-
-
 		scanf_s("%s", command, 16);
 		for (char i = 0; i < sizeof(command) / sizeof(char); i++)
 		{
 			command[i] = tolower(command[i]);
 		}
 
-		if (strcmp(command, "moveu") == 0)
+		if (!strcmp(command, "moveu"))
 		{
 			y += 1;
 			move(sock, clientid);
 		}
-		else if (strcmp(command, "moved") == 0)
+		else if (!strcmp(command, "moved"))
 		{
 			y -= 1;
 			move(sock, clientid);
 		}
-		else if (strcmp(command, "movel") == 0)
+		else if (!strcmp(command, "movel"))
 		{
 			x -= 1;
 			move(sock, clientid);
 		}
-		else if (strcmp(command, "mover") == 0)
+		else if (!strcmp(command, "mover"))
 		{
 			x += 1;
 			move(sock, clientid);
 		}
 
-		else if (strcmp(command, "leave") == 0)
+		else if (!strcmp(command, "leave"))
 		{
 			//leave(sock, clientid);
 			isFinished = true;

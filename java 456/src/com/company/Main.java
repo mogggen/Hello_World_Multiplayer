@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+
 import java.util.ArrayList;
 
 public class Main extends JComponent
@@ -17,6 +18,7 @@ public class Main extends JComponent
         // class constructor
         public GUI()
         {
+
             canvas.setBounds(0, 0, 201, 201);
             frame.setSize(201, 201);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -62,6 +64,8 @@ public class Main extends JComponent
             System.out.println(this.arr);
             this.arr = arr;
         }
+
+
 
         @Override
         protected void paintComponent(Graphics g) {
@@ -125,8 +129,9 @@ public class Main extends JComponent
         Server server = new Server(4999);
         new Main();
         while(true) {
-                Thread.sleep(1000);
-                server.listen(window);
+
+            Thread.sleep(1000);
+            server.listen(window);
         }
     }
 }

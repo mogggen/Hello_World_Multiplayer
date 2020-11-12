@@ -171,6 +171,7 @@ void ConnectServer(SOCKET sock)
 
 			case PlayerLeave:
 				std::cout << '[' << playerLeaveMsg->msg.head.seqNo << "]:\tleft server\tId=" << playerLeaveMsg->msg.head.id << endl;
+				if (playerLeaveMsg->msg.head.id == id) isFinished = true;
 				break;
 
 			case NewPlayerPosition:
@@ -199,8 +200,6 @@ void ConnectServer(SOCKET sock)
 		}
 	}
 }
-
-
 
 using namespace std;
 int main()
@@ -271,8 +270,6 @@ int main()
 	// FD_ZERO
 	// FD_SET
 	thread listen(ConnectServer, sock);
-	thread GUI(ConnectGUI, sock); //coming soon
-	//
 
 	Sleep(1000);
 	// while loop to send data

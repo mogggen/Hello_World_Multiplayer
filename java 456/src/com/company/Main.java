@@ -2,6 +2,8 @@ package com.company;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
@@ -9,8 +11,26 @@ import java.net.Socket;
 
 import java.util.ArrayList;
 
-public class Main extends JComponent
-{
+public class Main extends JComponent {
+
+   static class Keyl implements KeyListener{
+
+        @Override
+        public void keyTyped(KeyEvent e) {
+
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+System.out.println("hej");
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+
+        }
+    }
+
     public static class GUI
     {
         JFrame frame = new JFrame();
@@ -18,14 +38,14 @@ public class Main extends JComponent
         // class constructor
         public GUI()
         {
-
             canvas.setBounds(0, 0, 201, 201);
             frame.setSize(201, 201);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            frame.setTitle("Server");
+            frame.setTitle("GUI Server");
             frame.add(canvas);
             frame.pack();
             frame.setVisible(true);
+            frame.addKeyListener(new Keyl());
         }
     }
 

@@ -6,30 +6,13 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 import java.util.ArrayList;
 
 public class Main extends JComponent {
-
-   static class Keyl implements KeyListener{
-
-        @Override
-        public void keyTyped(KeyEvent e) {
-
-        }
-
-        @Override
-        public void keyPressed(KeyEvent e) {
-System.out.println("hej");
-        }
-
-        @Override
-        public void keyReleased(KeyEvent e) {
-
-        }
-    }
 
     public static class GUI
     {
@@ -45,7 +28,46 @@ System.out.println("hej");
             frame.add(canvas);
             frame.pack();
             frame.setVisible(true);
-            frame.addKeyListener(new Keyl());
+            frame.addKeyListener(new KeyListener() {
+                @Override
+                public void keyTyped(KeyEvent e) {
+
+                }
+
+                @Override
+                public void keyPressed(KeyEvent e) {
+                    switch (e.getKeyCode()){
+                        case 87:
+                        case 38:
+                            //up
+                            System.out.println("up");
+                            break;
+
+                        case 83:
+                        case 40:
+                            //down
+                            System.out.println("down");
+                            break;
+
+                        case 65:
+                        case 37:
+                            //left
+                            System.out.println("left");
+                            break;
+
+                        case 68:
+                        case 39:
+                            //right
+                            System.out.println("right");
+                            break;
+                    }
+                }
+
+                @Override
+                public void keyReleased(KeyEvent e) {
+
+                }
+            });
         }
     }
 
@@ -109,18 +131,20 @@ System.out.println("hej");
         }
     }
 
-    public static class Server
+    public static class Setup
     {
         ArrayList<Byte> byteBuf = new ArrayList<>();
         ArrayList<Pixel> info = new ArrayList<>();
         ServerSocket ss;
         Socket s;
         InputStream in;
+        OutputStream out;
 
-        public Server(int port) throws IOException {
+        public Setup(int port) throws IOException {
             ss = new ServerSocket(port);
             s = ss.accept();
             in = s.getInputStream();
+            out = s.getOutputStream();
             System.out.println("client connected");
         }
 
@@ -141,17 +165,22 @@ System.out.println("hej");
 
             byteBuf.clear();
         }
+
+        public void send(byte direction) throws IOException
+        {
+            out.write(direction);
+        }
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
 
         GUI window = new GUI();
-        Server server = new Server(4999);
+        Setup setup = new Setup(4999);
         new Main();
         while(true) {
 
             Thread.sleep(1000);
-            server.listen(window);
+            setup.listen(window);
         }
     }
 }

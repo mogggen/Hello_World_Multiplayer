@@ -37,6 +37,10 @@ public class Main extends JComponent {
                 @Override
                 public void keyPressed(KeyEvent e) {
                     switch (e.getKeyCode()){
+                        case 27:
+                            System.exit(0);
+                            break;
+
                         case 87:
                         case 38:
                             //up

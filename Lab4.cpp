@@ -7,7 +7,7 @@
 #pragma comment(lib, "ws2_32.lib")
 
 //Enums och constants
-#define MAXNAMELEN  32 
+#define MAXNAMELEN  32
 
 enum ObjectDesc {
 	Human,
@@ -205,7 +205,7 @@ using namespace std;
 int main()
 {
 	string ipAddress = "130.240.40.7";	// IP Address of the server
-	int LinuxPort = 49152;           // Linux Server port
+	int LinuxPort = 49152;				// Linux Server port
 
 	/*ipAddress = "127.0.0.1";
 	LinuxPort = 9002;*/
@@ -221,7 +221,7 @@ int main()
 	}
 
 	// Create socket
-	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
+	SOCKET listening = socket(AF_INET, SOCK_STREAM, 0);
 
 	// Fill in a hint structure
 	sockaddr_in sockaddr_in;
@@ -230,7 +230,7 @@ int main()
 	inet_pton(AF_INET, ipAddress.c_str(), &sockaddr_in.sin_addr);
 
 	// Error Handeling
-	int conRes = connect(sock, (sockaddr*)&sockaddr_in, sizeof(sockaddr_in));
+	int conRes = connect(listening, (sockaddr*)&sockaddr_in, sizeof(sockaddr_in));
 	if (conRes == SOCKET_ERROR)
 	{
 		string prompt = "Can't connect to server, Error: ";
@@ -239,7 +239,7 @@ int main()
 			cerr << prompt << "timeout" << endl;
 		else
 			cerr << prompt << '#' << error << endl;
-		closesocket(sock);
+		closesocket(listening);
 		WSACleanup();
 		return 0;
 	}
@@ -256,8 +256,8 @@ int main()
 	};
 	joining.head.length = sizeof(joining);
 
-	send(sock, (char*)&joining, joining.head.length, 0);
-	recv(sock, buf, sizeof(buf), 0);
+	send(listening, (char*)&joining, joining.head.length, 0);
+	recv(listening, buf, sizeof(buf), 0);
 	MsgHead* msgHead = (MsgHead*)buf;
 
 	int clientid = msgHead->id;
@@ -269,7 +269,7 @@ int main()
 	// FD_CLR
 	// FD_ZERO
 	// FD_SET
-	thread listen(ConnectServer, sock);
+	thread listen(ConnectServer, listening);
 
 	Sleep(1000);
 	// while loop to send data
@@ -285,22 +285,22 @@ int main()
 		if (!strcmp(command, "moveu"))
 		{
 			y++;
-			move(sock, clientid);
+			move(listening, clientid);
 		}
 		else if (!strcmp(command, "moved"))
 		{
 			y--;
-			move(sock, clientid);
+			move(listening, clientid);
 		}
 		else if (!strcmp(command, "movel"))
 		{
 			x--;
-			move(sock, clientid);
+			move(listening, clientid);
 		}
 		else if (!strcmp(command, "mover"))
 		{
 			x++;
-			move(sock, clientid);
+			move(listening, clientid);
 		}
 
 		else if (!strcmp(command, "leave"))
@@ -320,7 +320,7 @@ int main()
 	// Close everything
 	listen.join();
 	Sleep(500);
-	closesocket(sock);
+	closesocket(listening);
 	WSACleanup();
 	return 0;
 }

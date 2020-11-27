@@ -207,8 +207,8 @@ int main()
 	string ipAddress = "130.240.40.7";	// IP Address of the server
 	int LinuxPort = 49152;           // Linux Server port
 
-	ipAddress = "127.0.0.1";
-	LinuxPort = 9002;
+	/*ipAddress = "127.0.0.1";
+	LinuxPort = 9002;*/
 
 	// Initialize WinSock
 	WSAData data;
@@ -284,22 +284,22 @@ int main()
 
 		if (!strcmp(command, "moveu"))
 		{
-			y += 1;
+			y++;
 			move(sock, clientid);
 		}
 		else if (!strcmp(command, "moved"))
 		{
-			y -= 1;
+			y--;
 			move(sock, clientid);
 		}
 		else if (!strcmp(command, "movel"))
 		{
-			x -= 1;
+			x--;
 			move(sock, clientid);
 		}
 		else if (!strcmp(command, "mover"))
 		{
-			x += 1;
+			x++;
 			move(sock, clientid);
 		}
 

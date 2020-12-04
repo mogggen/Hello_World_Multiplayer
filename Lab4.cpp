@@ -1,6 +1,7 @@
 #include <iostream>
 #include <ctime>
 #include <string>
+#include <sstream>
 #include <cstring>
 #include <WS2tcpip.h>
 #include <thread>
@@ -99,7 +100,7 @@ struct TextMessageMsg {
 };
 
 int x, y;
-bool isFinished = false;
+bool loop = false;
 
 void ConnectGUI(SOCKET sock)
 {
@@ -141,7 +142,7 @@ void ConnectServer(SOCKET sock)
 	int id = -1;
 
 	
-	while (!isFinished)
+	while (!loop)
 	{
 		msgHead = (MsgHead*)buf;
 
@@ -171,7 +172,7 @@ void ConnectServer(SOCKET sock)
 
 			case PlayerLeave:
 				std::cout << '[' << playerLeaveMsg->msg.head.seqNo << "]:\tleft server\tId=" << playerLeaveMsg->msg.head.id << endl;
-				if (playerLeaveMsg->msg.head.id == id) isFinished = true;
+				if (playerLeaveMsg->msg.head.id == id) loop = true;
 				break;
 
 			case NewPlayerPosition:
@@ -262,19 +263,73 @@ int main()
 
 	int clientid = msgHead->id;
 	joining.head.id = clientid;
-		
+
 	// Byt ut mot Non-blocking IO
 	// if (FD_ISSET) är användbart ;)
 	// fd_set
-	// FD_CLR
 	// FD_ZERO
+	// FD_CLR
 	// FD_SET
+	fd_set master;
+	FD_ZERO(&master);
 	thread listen(ConnectServer, listening);
 
 	Sleep(1000);
 	// while loop to send data
-	while (!isFinished)
+	while (!loop)
 	{
+		fd_set copy = master;
+
+		// See who's talking to us
+		int socketCount = select(0, &copy, nullptr, nullptr, nullptr);
+
+		// Loop through all the current connections / potential connect
+		for (int i = 0; i < socketCount; i++)
+		{
+			// Makes things easy for us doing this assignment
+			SOCKET sock = copy.fd_array[i];
+
+			// Is it an inbound communication?
+			if (sock == listening)
+			{
+				// Accept a new connection
+				SOCKET client = accept(listening, nullptr, nullptr);
+
+				// Add the new connection to the list of connected clients
+				FD_SET(client, &master);
+
+				// Send a welcome message to the connected client
+				string welcomeMsg = "Welcome to the Awesome Chat Server!\r\n";
+				send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
+			}
+			else // It's an inbound message
+			{
+				char buf[4096];
+				ZeroMemory(buf, 4096);
+
+				// Receive message
+				int bytesIn = recv(sock, buf, 4096, 0);
+				if (bytesIn <= 0)
+				{
+					// Drop the client
+					closesocket(sock);
+					FD_CLR(sock, &master);
+				}
+
+				for (int i = 0; i < master.fd_count; i++)
+				{
+					SOCKET outSock = master.fd_array[i];
+					if (outSock != listening && outSock != sock)
+					{
+						ostringstream ss;
+						ss << "SOCKET #" << sock << ": " << buf << "\r\n";
+						string strOut = ss.str();
+
+						send(outSock, strOut.c_str(), strOut.size() + 1, 0);
+					}
+				}
+			}
+		}
 		//send to linux server
 		scanf_s("%s", command, 16);
 		for (char i = 0; i < sizeof(command) / sizeof(char); i++)
@@ -282,22 +337,22 @@ int main()
 			command[i] = tolower(command[i]);
 		}
 
-		if (!strcmp(command, "moveu"))
+		if (!strcmp(command, "moveu"))		//0
 		{
 			y++;
 			move(listening, clientid);
 		}
-		else if (!strcmp(command, "moved"))
+		else if (!strcmp(command, "moved"))	//1
 		{
 			y--;
 			move(listening, clientid);
 		}
-		else if (!strcmp(command, "movel"))
+		else if (!strcmp(command, "movel"))	//2
 		{
 			x--;
 			move(listening, clientid);
 		}
-		else if (!strcmp(command, "mover"))
+		else if (!strcmp(command, "mover"))	//3
 		{
 			x++;
 			move(listening, clientid);
@@ -306,7 +361,7 @@ int main()
 		else if (!strcmp(command, "leave"))
 		{
 			//leave(sock, clientid);
-			isFinished = true;
+			loop = true;
 		}
 		else
 		{

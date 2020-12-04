@@ -14,10 +14,25 @@ import java.util.ArrayList;
 
 public class Main extends JComponent {
 
+    static byte direction;
+
+    enum dir
+    {
+        up,
+        down,
+        left,
+        right
+    }
+
     public static class GUI
     {
         JFrame frame = new JFrame();
         PixelCanvas canvas = new PixelCanvas();
+        dir movel = dir.left;
+        dir mover = dir.right;
+        dir moved = dir.down;
+        dir moveu = dir.up;
+
         // class constructor
         public GUI()
         {
@@ -36,40 +51,21 @@ public class Main extends JComponent {
 
                 @Override
                 public void keyPressed(KeyEvent e) {
-                    switch (e.getKeyCode()){
-                        case 27:
-                            System.exit(0);
-                            break;
+                    switch (e.getKeyCode()) {
+                        case 27 -> System.exit(0);
 
-                        case 87:
-                        case 38:
-                            //up
-                            System.out.println("up");
-                            break;
-
-                        case 83:
-                        case 40:
-                            //down
-                            System.out.println("down");
-                            break;
-
-                        case 65:
-                        case 37:
-                            //left
-                            System.out.println("left");
-                            break;
-
-                        case 68:
-                        case 39:
-                            //right
-                            System.out.println("right");
-                            break;
+                        case 87, 38 -> direction = (byte)moveu.ordinal();
+                        case 83, 40 -> direction = (byte)moved.ordinal();
+                        case 65, 37 -> direction = (byte)movel.ordinal();
+                        case 68, 39 -> direction = (byte)mover.ordinal();
                     }
+                    System.out.println(direction);
+                    final Runnable runnable = (Runnable) Toolkit.getDefaultToolkit().getDesktopProperty("win.sound.exclamation"); if (runnable != null) runnable.run();
                 }
 
                 @Override
                 public void keyReleased(KeyEvent e) {
-
+                    direction = -1;
                 }
             });
         }
@@ -110,8 +106,6 @@ public class Main extends JComponent {
             System.out.println(this.arr);
             this.arr = arr;
         }
-
-
 
         @Override
         protected void paintComponent(Graphics g) {
@@ -170,21 +164,20 @@ public class Main extends JComponent {
             byteBuf.clear();
         }
 
-        public void send(byte direction) throws IOException
+        public void speak(byte direction) throws IOException
         {
             out.write(direction);
         }
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException {
 
         GUI window = new GUI();
         Setup setup = new Setup(4999);
         new Main();
         while(true) {
-
-            Thread.sleep(1000);
             setup.listen(window);
+            setup.speak(direction);
         }
     }
 }

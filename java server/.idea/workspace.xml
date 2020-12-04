@@ -20,15 +20,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="70b59d4c-54de-4646-8473-825060787689" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/../Lab4.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../Lab4.cpp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/java server/com/company/Main$GUI$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/java server/com/company/Main$GUI$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/java server/com/company/Main$GUI.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/java server/com/company/Main$GUI.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/java server/com/company/Main$Pixel.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/java server/com/company/Main$Pixel.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/java server/com/company/Main$PixelCanvas.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/java server/com/company/Main$PixelCanvas.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/java server/com/company/Main$Setup.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/java server/com/company/Main$Setup.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/out/production/java server/com/company/Main.class" beforeDir="false" afterPath="$PROJECT_DIR$/out/production/java server/com/company/Main.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/com/company/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/com/company/Main.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

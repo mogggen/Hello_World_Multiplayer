@@ -102,11 +102,6 @@ struct TextMessageMsg {
 int x, y;
 bool loop = false;
 
-void ConnectGUI(SOCKET sock)
-{
-
-}
-
 void move(SOCKET sock, int clientid)
 {
 	MoveEvent moving =
@@ -206,12 +201,11 @@ using namespace std;
 int main()
 {
 	string ipAddress = "130.240.40.7";	// IP Address of the server
-	int LinuxPort = 49152;				// Linux Server port
+	int LinuxPort = 54000;// 49152;				// Linux Server port
 
 	/*ipAddress = "127.0.0.1";
 	LinuxPort = 9002;*/
 
-	// Initialize WinSock
 	WSAData data;
 	WORD ver = MAKEWORD(2, 2);
 	int wsResult = WSAStartup(ver, &data);
@@ -272,46 +266,37 @@ int main()
 	// FD_SET
 	fd_set master;
 	FD_ZERO(&master);
-	thread listen(ConnectServer, listening);
+	//thread listen(ConnectServer, listening);
 
 	Sleep(1000);
-	// while loop to send data
 	while (!loop)
 	{
 		fd_set copy = master;
 
-		// See who's talking to us
 		int socketCount = select(0, &copy, nullptr, nullptr, nullptr);
 
-		// Loop through all the current connections / potential connect
 		for (int i = 0; i < socketCount; i++)
 		{
-			// Makes things easy for us doing this assignment
 			SOCKET sock = copy.fd_array[i];
 
-			// Is it an inbound communication?
 			if (sock == listening)
 			{
-				// Accept a new connection
 				SOCKET client = accept(listening, nullptr, nullptr);
 
 				// Add the new connection to the list of connected clients
 				FD_SET(client, &master);
 
-				// Send a welcome message to the connected client
 				string welcomeMsg = "Welcome to the Awesome Chat Server!\r\n";
 				send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
 			}
-			else // It's an inbound message
+			else
 			{
 				char buf[4096];
 				ZeroMemory(buf, 4096);
 
-				// Receive message
 				int bytesIn = recv(sock, buf, 4096, 0);
 				if (bytesIn <= 0)
 				{
-					// Drop the client
 					closesocket(sock);
 					FD_CLR(sock, &master);
 				}
@@ -373,7 +358,6 @@ int main()
 	}
 
 	// Close everything
-	listen.join();
 	Sleep(500);
 	closesocket(listening);
 	WSACleanup();

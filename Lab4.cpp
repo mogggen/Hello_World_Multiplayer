@@ -200,11 +200,14 @@ void ConnectServer(SOCKET sock)
 using namespace std;
 int main()
 {
-	string ipAddress = "130.240.40.7";	// IP Address of the server
+	string javaAddress = "127.0.0.1";
+	int javaPort = 4999;
+
+	string LinuxIpAddress = "130.240.40.7";	// IP Address of the server
 	int LinuxPort = 54000;// 49152;				// Linux Server port
 
-	/*ipAddress = "127.0.0.1";
-	LinuxPort = 9002;*/
+	LinuxIpAddress = "127.0.0.1";
+	LinuxPort = 9002;
 
 	WSAData data;
 	WORD ver = MAKEWORD(2, 2);
@@ -214,18 +217,18 @@ int main()
 		cerr << "Can't start Winsock, Err #" << wsResult << endl;
 		return 0;
 	}
-
+	
 	// Create socket
-	SOCKET listening = socket(AF_INET, SOCK_STREAM, 0);
-
-	// Fill in a hint structure
-	sockaddr_in sockaddr_in;
-	sockaddr_in.sin_family = AF_INET;
-	sockaddr_in.sin_port = htons(LinuxPort);
-	inet_pton(AF_INET, ipAddress.c_str(), &sockaddr_in.sin_addr);
+	SOCKET Linux_listening = socket(AF_INET, SOCK_STREAM, 0);
+	
+	// Fill in a Linux hint structure
+	sockaddr_in Linux_sockaddr_in;
+	Linux_sockaddr_in.sin_family = AF_INET;
+	Linux_sockaddr_in.sin_port = htons(LinuxPort);
+	inet_pton(AF_INET, LinuxIpAddress.c_str(), &Linux_sockaddr_in.sin_addr);
 
 	// Error Handeling
-	int conRes = connect(listening, (sockaddr*)&sockaddr_in, sizeof(sockaddr_in));
+	int conRes = connect(Linux_listening, (sockaddr*)&Linux_sockaddr_in, sizeof(Linux_sockaddr_in));
 	if (conRes == SOCKET_ERROR)
 	{
 		string prompt = "Can't connect to server, Error: ";
@@ -234,12 +237,39 @@ int main()
 			cerr << prompt << "timeout" << endl;
 		else
 			cerr << prompt << '#' << error << endl;
-		closesocket(listening);
+		closesocket(Linux_listening);
 		WSACleanup();
 		return 0;
 	}
 
-	char buf[MAXNAMELEN];
+	// Create socket
+	SOCKET java_listening = socket(AF_INET, SOCK_STREAM, 0);
+	
+	sockaddr_in java_sockaddr_in;
+	java_sockaddr_in.sin_family = AF_INET;
+	java_sockaddr_in.sin_port = htons(LinuxPort);
+	inet_pton(AF_INET, LinuxIpAddress.c_str(), &java_sockaddr_in.sin_addr);
+
+	// Error Handeling
+	int conRes = connect(java_listening, (sockaddr*)&java_sockaddr_in, sizeof(java_sockaddr_in));
+	if (conRes == SOCKET_ERROR)
+	{
+		string prompt = "Can't connect to server, Error: ";
+		int error = WSAGetLastError();
+		if (error == 10061)
+			cerr << prompt << "timeout" << endl;
+		else
+			cerr << prompt << '#' << error << endl;
+		closesocket(java_listening);
+		WSACleanup();
+		return 0;
+	}
+
+	
+
+
+	char Linux_buf[MAXNAMELEN];
+	char java_buf[MAXNAMELEN];
 	char command[MAXNAMELEN];
 
 	JoinMsg joining
@@ -251,40 +281,43 @@ int main()
 	};
 	joining.head.length = sizeof(joining);
 
-	send(listening, (char*)&joining, joining.head.length, 0);
-	recv(listening, buf, sizeof(buf), 0);
-	MsgHead* msgHead = (MsgHead*)buf;
+	send(Linux_listening, (char*)&joining, joining.head.length, 0);
+	recv(Linux_listening, Linux_buf, sizeof(Linux_buf), 0);
+	MsgHead* msgHead = (MsgHead*)Linux_buf;
 
 	int clientid = msgHead->id;
 	joining.head.id = clientid;
 
+	send(java_listening, (char*)&joining, joining.head.length, 0);
+	recv(java_listening, java_buf, sizeof(java_buf), 0);
+
 	// Byt ut mot Non-blocking IO
-	// if (FD_ISSET) är användbart ;)
+	// if (FD_ISSET) Ã¤r anvï¿½ndbart ;)
 	// fd_set
 	// FD_ZERO
 	// FD_CLR
 	// FD_SET
-	fd_set master;
-	FD_ZERO(&master);
+	fd_set Linux_master;
+	FD_ZERO(&Linux_master);
 	//thread listen(ConnectServer, listening);
 
 	Sleep(1000);
 	while (!loop)
 	{
-		fd_set copy = master;
+		fd_set copy = Linux_master;
 
-		int socketCount = select(0, &copy, nullptr, nullptr, nullptr);
+		int Linux_socketCount = select(0, &copy, nullptr, nullptr, nullptr);
 
-		for (int i = 0; i < socketCount; i++)
+		for (int i = 0; i < Linux_socketCount; i++)
 		{
 			SOCKET sock = copy.fd_array[i];
 
-			if (sock == listening)
+			if (sock == Linux_listening)
 			{
-				SOCKET client = accept(listening, nullptr, nullptr);
+				SOCKET client = accept(Linux_listening, nullptr, nullptr);
 
 				// Add the new connection to the list of connected clients
-				FD_SET(client, &master);
+				FD_SET(client, &Linux_master);
 
 				string welcomeMsg = "Welcome to the Awesome Chat Server!\r\n";
 				send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
@@ -298,13 +331,13 @@ int main()
 				if (bytesIn <= 0)
 				{
 					closesocket(sock);
-					FD_CLR(sock, &master);
+					FD_CLR(sock, &Linux_master);
 				}
 
-				for (int i = 0; i < master.fd_count; i++)
+				for (int i = 0; i < Linux_master.fd_count; i++)
 				{
-					SOCKET outSock = master.fd_array[i];
-					if (outSock != listening && outSock != sock)
+					SOCKET outSock = Linux_master.fd_array[i];
+					if (outSock != Linux_listening && outSock != sock)
 					{
 						ostringstream ss;
 						ss << "SOCKET #" << sock << ": " << buf << "\r\n";
@@ -315,6 +348,50 @@ int main()
 				}
 			}
 		}
+		
+		int Linux_socketCount = select(0, &copy, nullptr, nullptr, nullptr);
+
+		for (int i = 0; i < Linux_socketCount; i++)
+		{
+			SOCKET sock = copy.fd_array[i];
+
+			if (sock == Linux_listening)
+			{
+				SOCKET client = accept(Linux_listening, nullptr, nullptr);
+
+				// Add the new connection to the list of connected clients
+				FD_SET(client, &Linux_master);
+
+				string welcomeMsg = "Welcome to the Awesome Chat Server!\r\n";
+				send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
+			}
+			else
+			{
+				char buf[4096];
+				ZeroMemory(buf, 4096);
+
+				int bytesIn = recv(sock, buf, 4096, 0);
+				if (bytesIn <= 0)
+				{
+					closesocket(sock);
+					FD_CLR(sock, &Linux_master);
+				}
+
+				for (int i = 0; i < Linux_master.fd_count; i++)
+				{
+					SOCKET outSock = Linux_master.fd_array[i];
+					if (outSock != Linux_listening && outSock != sock)
+					{
+						ostringstream ss;
+						ss << "SOCKET #" << sock << ": " << buf << "\r\n";
+						string strOut = ss.str();
+
+						send(outSock, strOut.c_str(), strOut.size() + 1, 0);
+					}
+				}
+			}
+		}
+
 		//send to linux server
 		scanf_s("%s", command, 16);
 		for (char i = 0; i < sizeof(command) / sizeof(char); i++)
@@ -325,22 +402,22 @@ int main()
 		if (!strcmp(command, "moveu"))		//0
 		{
 			y++;
-			move(listening, clientid);
+			move(Linux_listening, clientid);
 		}
 		else if (!strcmp(command, "moved"))	//1
 		{
 			y--;
-			move(listening, clientid);
+			move(Linux_listening, clientid);
 		}
 		else if (!strcmp(command, "movel"))	//2
 		{
 			x--;
-			move(listening, clientid);
+			move(Linux_listening, clientid);
 		}
 		else if (!strcmp(command, "mover"))	//3
 		{
 			x++;
-			move(listening, clientid);
+			move(Linux_listening, clientid);
 		}
 
 		else if (!strcmp(command, "leave"))
@@ -359,7 +436,8 @@ int main()
 
 	// Close everything
 	Sleep(500);
-	closesocket(listening);
+	closesocket(Linux_listening);
+	closesocket(java_listening);
 	WSACleanup();
 	return 0;
 }

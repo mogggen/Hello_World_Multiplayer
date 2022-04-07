@@ -100,7 +100,7 @@ struct TextMessageMsg {
 };
 
 int x, y;
-bool loop = false;
+bool loop = true;
 
 void move(SOCKET sock, int clientid)
 {
@@ -137,7 +137,7 @@ void ConnectServer(SOCKET sock)
 	int id = -1;
 
 	
-	while (!loop)
+	while (loop)
 	{
 		msgHead = (MsgHead*)buf;
 
@@ -299,18 +299,20 @@ int main()
 	// FD_SET
 	fd_set Linux_master;
 	FD_ZERO(&Linux_master);
+	fd_set java_master;
+	FD_ZERO(&java_master);
 	//thread listen(ConnectServer, listening);
 
 	Sleep(1000);
 	while (!loop)
 	{
-		fd_set copy = Linux_master;
+		fd_set Linux_copy = Linux_master;
 
-		int Linux_socketCount = select(0, &copy, nullptr, nullptr, nullptr);
+		int Linux_socketCount = select(0, &Linux_copy, nullptr, nullptr, nullptr);
 
 		for (int i = 0; i < Linux_socketCount; i++)
 		{
-			SOCKET sock = copy.fd_array[i];
+			SOCKET sock = Linux_copy.fd_array[i];
 
 			if (sock == Linux_listening)
 			{
@@ -349,18 +351,20 @@ int main()
 			}
 		}
 		
-		int Linux_socketCount = select(0, &copy, nullptr, nullptr, nullptr);
+		fd_set java_copy = java_master;
 
-		for (int i = 0; i < Linux_socketCount; i++)
+		int java_socketCount = select(0, &java_copy, nullptr, nullptr, nullptr);
+
+		for (int i = 0; i < java_socketCount; i++)
 		{
-			SOCKET sock = copy.fd_array[i];
+			SOCKET sock = java_copy.fd_array[i];
 
-			if (sock == Linux_listening)
+			if (sock == java_listening)
 			{
-				SOCKET client = accept(Linux_listening, nullptr, nullptr);
+				SOCKET client = accept(java_listening, nullptr, nullptr);
 
 				// Add the new connection to the list of connected clients
-				FD_SET(client, &Linux_master);
+				FD_SET(client, &java_master);
 
 				string welcomeMsg = "Welcome to the Awesome Chat Server!\r\n";
 				send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
@@ -374,13 +378,13 @@ int main()
 				if (bytesIn <= 0)
 				{
 					closesocket(sock);
-					FD_CLR(sock, &Linux_master);
+					FD_CLR(sock, &java_master);
 				}
 
-				for (int i = 0; i < Linux_master.fd_count; i++)
+				for (int i = 0; i < java_master.fd_count; i++)
 				{
-					SOCKET outSock = Linux_master.fd_array[i];
-					if (outSock != Linux_listening && outSock != sock)
+					SOCKET outSock = java_master.fd_array[i];
+					if (outSock != java_listening && outSock != sock)
 					{
 						ostringstream ss;
 						ss << "SOCKET #" << sock << ": " << buf << "\r\n";
@@ -423,7 +427,7 @@ int main()
 		else if (!strcmp(command, "leave"))
 		{
 			//leave(sock, clientid);
-			loop = true;
+			loop = false;
 		}
 		else
 		{

@@ -7,6 +7,8 @@ import java.awt.event.KeyListener;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -106,7 +108,7 @@ public class Main extends JComponent {
         char text[];   //NULL-terminerad array of chars.
     };
 
-    static byte direction;
+    static byte direction = -1;
 
     enum dir
     {
@@ -151,7 +153,7 @@ public class Main extends JComponent {
                         case 65, 37 -> direction = (byte)movel.ordinal();
                         case 68, 39 -> direction = (byte)mover.ordinal();
                     }
-                    System.out.println(direction);
+                    //System.out.println(direction);
                     final Runnable runnable = (Runnable) Toolkit.getDefaultToolkit().getDesktopProperty("win.sound.exclamation"); if (runnable != null) runnable.run();
                 }
 
@@ -195,7 +197,7 @@ public class Main extends JComponent {
         ArrayList<Pixel> arr;
         void SetParamArr(ArrayList<Pixel> arr)
         {
-            System.out.println(this.arr);
+            //System.out.println(this.arr);
             this.arr = arr;
         }
 
@@ -229,26 +231,36 @@ public class Main extends JComponent {
         Socket s;
         InputStream in;
         OutputStream out;
+        InetSocketAddress cmdAddress;
 
         public Setup(int port) throws IOException {
             ss = new ServerSocket(port);
+            //cmdAddress = InetSocketAddress.createUnresolved("127.0.0.1", 4999);
+            //ss.bind(cmdAddress);
+
             s = ss.accept();
             in = s.getInputStream();
             out = s.getOutputStream();
             System.out.println("client connected");
+            //System.out.println(ss.getInetAddress().toString());
         }
 
         //Reads Bytes from the input stream
         public void listen(GUI window) throws IOException {
-            byte temp;
+            byte temp = 0;
             for (byte i = 0; i < 3; i++) {
                 temp = (byte) in.read();
                 byteBuf.add(temp);
+                // if the sock matches with client id, this is the pixel representing this clients player
+                // if it matches a previous pixel color don't add a new pixel
             }
-
+            System.out.println(temp);
             //Reformat
             for (int k = 0; k < byteBuf.size(); k += 3) {
-                info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k + 1)), Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
+                //info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k + 1)), Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
+                System.out.print((byteBuf.get(k)+(byte)48) + (byteBuf.get(k+1)+(byte)48) + (byteBuf.get(k+2)+(byte)48));
+                info.clear();
+                info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
             }
             window.canvas.SetParamArr(info);
             window.frame.repaint();
@@ -258,7 +270,30 @@ public class Main extends JComponent {
 
         public void speak(byte direction) throws IOException
         {
-            out.write(direction);
+            //new position
+            byte x = 0, y = 0; // send five bytes or use the 2 left-most bits in the color byte
+            switch (direction)
+            {
+                case -1:
+                    break;
+                case 0:
+                    y -= 1;
+                    break;
+                case 1:
+                    y += 1;
+                    break;
+                case 2:
+                    x -= 1;
+                    break;
+                case 3:
+                    x += 1;
+                    break;
+                default:
+                    System.out.println("Error in speak switch");
+                    return;
+            }
+            byte[] pl = { x, y, (byte)7};
+            out.write(pl);
         }
     }
 
@@ -268,6 +303,7 @@ public class Main extends JComponent {
         Setup setup = new Setup(4999);
         new Main();
         while(true) {
+            // no specific protocol needs to be used
             setup.listen(window);
             setup.speak(direction);
         }

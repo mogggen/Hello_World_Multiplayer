@@ -207,7 +207,7 @@ int main()
 	int LinuxPort = 54000;// 49152;				// Linux Server port
 
 	LinuxIpAddress = "127.0.0.1";
-	LinuxPort = 9002;
+	LinuxPort = 4999;// 9002;
 
 	WSAData data;
 	WORD ver = MAKEWORD(2, 2);
@@ -228,8 +228,8 @@ int main()
 	inet_pton(AF_INET, LinuxIpAddress.c_str(), &Linux_sockaddr_in.sin_addr);
 
 	// Error Handeling
-	int conRes = connect(Linux_listening, (sockaddr*)&Linux_sockaddr_in, sizeof(Linux_sockaddr_in));
-	if (conRes == SOCKET_ERROR)
+	int Linux_conRes = connect(Linux_listening, (sockaddr*)&Linux_sockaddr_in, sizeof(Linux_sockaddr_in));
+	if (Linux_conRes == SOCKET_ERROR)
 	{
 		string prompt = "Can't connect to server, Error: ";
 		int error = WSAGetLastError();
@@ -251,8 +251,8 @@ int main()
 	inet_pton(AF_INET, LinuxIpAddress.c_str(), &java_sockaddr_in.sin_addr);
 
 	// Error Handeling
-	int conRes = connect(java_listening, (sockaddr*)&java_sockaddr_in, sizeof(java_sockaddr_in));
-	if (conRes == SOCKET_ERROR)
+	int java_conRes = connect(java_listening, (sockaddr*)&java_sockaddr_in, sizeof(java_sockaddr_in));
+	if (java_conRes == SOCKET_ERROR)
 	{
 		string prompt = "Can't connect to server, Error: ";
 		int error = WSAGetLastError();
@@ -281,8 +281,8 @@ int main()
 	};
 	joining.head.length = sizeof(joining);
 
-	send(Linux_listening, (char*)&joining, joining.head.length, 0);
-	recv(Linux_listening, Linux_buf, sizeof(Linux_buf), 0);
+	/*send(Linux_listening, (char*)&joining, joining.head.length, 0);
+	recv(Linux_listening, Linux_buf, sizeof(Linux_buf), 0);*/
 	MsgHead* msgHead = (MsgHead*)Linux_buf;
 
 	int clientid = msgHead->id;
@@ -292,64 +292,63 @@ int main()
 	recv(java_listening, java_buf, sizeof(java_buf), 0);
 
 	// Byt ut mot Non-blocking IO
-	// if (FD_ISSET) är anv�ndbart ;)
+	// if (FD_ISSET) är användbart ;)
 	// fd_set
 	// FD_ZERO
 	// FD_CLR
 	// FD_SET
-	fd_set Linux_master;
-	FD_ZERO(&Linux_master);
+	/*fd_set Linux_master;
+	FD_ZERO(&Linux_master);*/
 	fd_set java_master;
 	FD_ZERO(&java_master);
 	//thread listen(ConnectServer, listening);
 
-	Sleep(1000);
 	while (!loop)
 	{
-		fd_set Linux_copy = Linux_master;
+		//fd_set Linux_copy = Linux_master;
 
-		int Linux_socketCount = select(0, &Linux_copy, nullptr, nullptr, nullptr);
+		//int Linux_socketCount = select(0, &Linux_copy, nullptr, nullptr, nullptr);
 
-		for (int i = 0; i < Linux_socketCount; i++)
-		{
-			SOCKET sock = Linux_copy.fd_array[i];
+		//for (int i = 0; i < Linux_socketCount; i++)
+		//{
+		//	SOCKET sock = Linux_copy.fd_array[i];
 
-			if (sock == Linux_listening)
-			{
-				SOCKET client = accept(Linux_listening, nullptr, nullptr);
+		//	if (sock == Linux_listening)
+		//	{
+		//		SOCKET client = accept(Linux_listening, nullptr, nullptr);
 
-				// Add the new connection to the list of connected clients
-				FD_SET(client, &Linux_master);
+		//		// Add the new connection to the list of connected clients
+		//		FD_SET(client, &Linux_master);
 
-				string welcomeMsg = "Welcome to the Awesome Chat Server!\r\n";
-				send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
-			}
-			else
-			{
-				char buf[4096];
-				ZeroMemory(buf, 4096);
+		//		string welcomeMsg = "Welcome to the Awesome Chat Server!\r\n";
+		//		send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
+		//	}
+		//	else
+		//	{
+		//		char buf[4096];
+		//		ZeroMemory(buf, 4096);
 
-				int bytesIn = recv(sock, buf, 4096, 0);
-				if (bytesIn <= 0)
-				{
-					closesocket(sock);
-					FD_CLR(sock, &Linux_master);
-				}
+		//		int bytesIn = recv(sock, buf, 4096, 0);
+		//		if (bytesIn <= 0)
+		//		{
+		//			closesocket(sock);
+		//			FD_CLR(sock, &Linux_master);
+		//		}
 
-				for (int i = 0; i < Linux_master.fd_count; i++)
-				{
-					SOCKET outSock = Linux_master.fd_array[i];
-					if (outSock != Linux_listening && outSock != sock)
-					{
-						ostringstream ss;
-						ss << "SOCKET #" << sock << ": " << buf << "\r\n";
-						string strOut = ss.str();
+		//		for (int i = 0; i < Linux_master.fd_count; i++)
+		//		{
+		//			SOCKET outSock = Linux_master.fd_array[i];
+		//			if (outSock != Linux_listening && outSock != sock)
+		//			{
+		//				ostringstream ss;
+		//				ss << "SOCKET #" << sock << ": " << buf << "\r\n";
+		//				string strOut = ss.str();
 
-						send(outSock, strOut.c_str(), strOut.size() + 1, 0);
-					}
-				}
-			}
-		}
+		//				send(outSock, strOut.c_str(), strOut.size() + 1, 0);
+		//			}
+		//		}
+		//	}
+		//}
 		
 		fd_set java_copy = java_master;
 
@@ -357,8 +356,10 @@ int main()
 
 		for (int i = 0; i < java_socketCount; i++)
 		{
+			// grabes the next socket in the set
 			SOCKET sock = java_copy.fd_array[i];
 
+			//check if it's a new connection
 			if (sock == java_listening)
 			{
 				SOCKET client = accept(java_listening, nullptr, nullptr);
@@ -366,19 +367,23 @@ int main()
 				// Add the new connection to the list of connected clients
 				FD_SET(client, &java_master);
 
-				string welcomeMsg = "Welcome to the Awesome Chat Server!\r\n";
+				string welcomeMsg = "W"; // newPlayer
+				ostringstream finalWelcome;
+				finalWelcome << welcomeMsg << sock << "\r\n";
 				send(client, welcomeMsg.c_str(), welcomeMsg.size() + 1, 0);
 			}
-			else
+			else // read input and broadcast
 			{
-				char buf[4096];
-				ZeroMemory(buf, 4096);
+				char positions[4096];
+				ZeroMemory(positions, 4096);
 
-				int bytesIn = recv(sock, buf, 4096, 0);
+				int bytesIn = recv(sock, positions, 4096, 0); // only new newest position
 				if (bytesIn <= 0)
 				{
+					// remove the new connection to the list of connected clients
 					closesocket(sock);
 					FD_CLR(sock, &java_master);
+					// send leave message
 				}
 
 				for (int i = 0; i < java_master.fd_count; i++)
@@ -387,10 +392,10 @@ int main()
 					if (outSock != java_listening && outSock != sock)
 					{
 						ostringstream ss;
-						ss << "SOCKET #" << sock << ": " << buf << "\r\n";
+						ss << "SOCKET #" << sock << ": " << positions << "\r\n"; // send sock and new position
 						string strOut = ss.str();
 
-						send(outSock, strOut.c_str(), strOut.size() + 1, 0);
+						send(outSock, strOut.c_str(), strOut.size() + 1, 0); // take sock for client id and the new position
 					}
 				}
 			}

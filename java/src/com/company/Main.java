@@ -7,14 +7,19 @@ import java.awt.event.KeyListener;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-
+import java.net.SocketException;
 import java.util.ArrayList;
 
-public class Main extends JComponent {
+public class Main extends JComponent implements Runnable {
+
+    static ArrayList<Byte> byteBuf = new ArrayList<>();
+    static ArrayList<Pixel> info = new ArrayList<>();
+    static ServerSocket ss;
+    static Socket s;
+    static InputStream in;
+    static OutputStream out;
 
     //Enums och constants
     public int MAXNAMELEN = 32;
@@ -223,89 +228,89 @@ public class Main extends JComponent {
         }
     }
 
-    public static class Setup
+    public static void runSetup(int port) throws IOException {
+        ss = new ServerSocket(port);
+
+        s = ss.accept();
+        in = s.getInputStream();
+        out = s.getOutputStream();
+        System.out.println("client connected");
+    }
+
+    //Reads Bytes from the input stream
+    public static void listen(GUI window) throws IOException {
+
+        byte[] buf = new byte[1024];
+        int count = in.read(buf);
+//        //Reformat
+//        for (int k = 0; k < byteBuf.size(); k += 3) {
+//            //info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k + 1)), Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
+//            System.out.print((byteBuf.get(k)+(byte)48) + (byteBuf.get(k+1)+(byte)48) + (byteBuf.get(k+2)+(byte)48));
+//            info.clear();
+//            info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
+//        }
+//        window.canvas.SetParamArr(info);
+//        window.frame.repaint();
+//
+//        byteBuf.clear();
+    }
+
+    public static void speak() throws IOException
     {
-        ArrayList<Byte> byteBuf = new ArrayList<>();
-        ArrayList<Pixel> info = new ArrayList<>();
-        ServerSocket ss;
-        Socket s;
-        InputStream in;
-        OutputStream out;
-        InetSocketAddress cmdAddress;
-
-        public Setup(int port) throws IOException {
-            ss = new ServerSocket(port);
-            //cmdAddress = InetSocketAddress.createUnresolved("127.0.0.1", 4999);
-            //ss.bind(cmdAddress);
-
-            s = ss.accept();
-            in = s.getInputStream();
-            out = s.getOutputStream();
-            System.out.println("client connected");
-            //System.out.println(ss.getInetAddress().toString());
-        }
-
-        //Reads Bytes from the input stream
-        public void listen(GUI window) throws IOException {
-            byte temp = 0;
-            for (byte i = 0; i < 3; i++) {
-                temp = (byte) in.read();
-                byteBuf.add(temp);
-                // if the sock matches with client id, this is the pixel representing this clients player
-                // if it matches a previous pixel color don't add a new pixel
-            }
-            System.out.println(temp);
-            //Reformat
-            for (int k = 0; k < byteBuf.size(); k += 3) {
-                //info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k + 1)), Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
-                System.out.print((byteBuf.get(k)+(byte)48) + (byteBuf.get(k+1)+(byte)48) + (byteBuf.get(k+2)+(byte)48));
-                info.clear();
-                info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
-            }
-            window.canvas.SetParamArr(info);
-            window.frame.repaint();
-
-            byteBuf.clear();
-        }
-
-        public void speak(byte direction) throws IOException
+        //new position
+        byte x = 0, y = 0; // send five bytes or use the 2 left-most bits in the color byte
+        switch (direction)
         {
-            //new position
-            byte x = 0, y = 0; // send five bytes or use the 2 left-most bits in the color byte
-            switch (direction)
-            {
-                case -1:
-                    break;
-                case 0:
-                    y -= 1;
-                    break;
-                case 1:
-                    y += 1;
-                    break;
-                case 2:
-                    x -= 1;
-                    break;
-                case 3:
-                    x += 1;
-                    break;
-                default:
-                    System.out.println("Error in speak switch");
-                    return;
+            case -1:
+                break;
+            case 0:
+                y -= 1;
+                break;
+            case 1:
+                y += 1;
+                break;
+            case 2:
+                x -= 1;
+                break;
+            case 3:
+                x += 1;
+                break;
+            default:
+                System.out.println("Error in speak switch");
+                return;
+        }
+        byte[] pl = { x, y, (byte)7};
+        out.write(pl);
+    }
+
+    public void run()
+    {
+        while (true) {
+            try {
+                if (direction != -1) {
+                    speak();
+                    direction = -1;
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            byte[] pl = { x, y, (byte)7};
-            out.write(pl);
         }
     }
 
-    public static void main(String[] args) throws IOException {
-
+    public static void main(String[] args) throws IOException, SocketException {
+        Main sendingThread = new Main();
+        Thread receivingThread = new Thread(sendingThread);
+        receivingThread.start();
         GUI window = new GUI();
-        Setup setup = new Setup(4999);
-        new Main();
+        runSetup(4999);
         while(true) {
             // no specific protocol needs to be used
-            setup.listen(window);
-            setup.speak(direction);
+            try {
+                listen(window);
+            }catch (SocketException s){
+                s.printStackTrace(out);
+            }
+            System.out.println("received data");
         }
     }
 }

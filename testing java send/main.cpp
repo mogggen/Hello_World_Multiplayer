@@ -41,12 +41,13 @@ int main()
 		return 0;
 	}
 	char recvbuf[1024];
+	recvbuf[0] = '\0';
 	char sendbuf[] = "Hello Neighbour";
 	while(true)
 	{
-		recv(listening, recvbuf, sizeof(recvbuf), 0);
+		send(listening, recvbuf, sizeof(recvbuf), 0);
 		std::cout << recvbuf << std::endl;
-		send(listening, sendbuf, sizeof(sendbuf), 0);
+		recv(listening, recvbuf, sizeof(recvbuf), 0);
 	}
 	closesocket(listening);
 	WSACleanup();

@@ -308,7 +308,7 @@ public class Main extends JComponent implements Runnable {
             try {
                 listen(window);
             }catch (SocketException s){
-                s.printStackTrace(out);
+                s.printStackTrace();
             }
             System.out.println("received data");
         }

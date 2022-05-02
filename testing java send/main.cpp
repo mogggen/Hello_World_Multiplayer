@@ -17,13 +17,8 @@
 #include <errno.h>
 #endif
 
-int main()
+void running(const bool& sending, const std::string& ipAddress, const int& port)
 {
-
-
-	std::string ipAddress = "127.0.0.1";
-	int port = 4999;
-
 #ifdef _WIN32
 	WSAData data;
 	WORD ver = MAKEWORD(2, 2);
@@ -35,7 +30,7 @@ int main()
 	}
 #endif
 
-#ifndef SOCKET
+#ifdef __linux
 #define SOCKET int
 #endif
 
@@ -53,20 +48,13 @@ int main()
 	int conRes = connect(listening, (sockaddr*)&socketAddr_in, sizeof(socketAddr_in));
 
 #ifdef _WIN32
-#ifndef SOCKET_ERROR
-#define SOCKET_ERROR errno
-#endif
 	if (conRes == SOCKET_ERROR)
 	{
 		std::string prompt = "Can't connect to server, Error: ";
 		int error = errno;
 		std::cerr << prompt << '#' << error << std::endl;
-#ifdef _WIN32
 		closesocket(listening);
 		WSACleanup();
-#elif __linux__
-		close(listening);
-#endif
 		return 0;
 	}
 #endif
@@ -76,8 +64,12 @@ int main()
 	char sendbuf[] = "Hello Neighbour";
 	while(true)
 	{
-		send(listening, recvbuf, sizeof(recvbuf), 0);
-		std::cout << recvbuf << std::endl;
+		if (sending)
+		{
+			send(listening, recvbuf, sizeof(recvbuf), 0);
+		}
+		else
+		{
 #ifdef __linux__
 		ssize_t r = recv(listening, recvbuf, sizeof(recvbuf), 0);
 		if (r == -1 && errno == EWOULDBLOCK)
@@ -87,6 +79,9 @@ int main()
 #elif _WIN32
 		recv(listening, recvbuf, sizeof(recvbuf), 0);
 #endif
+		// handle the received data here
+		/* code */
+		}
 	}
 #ifdef _WIN32
 	closesocket(listening);
@@ -94,5 +89,18 @@ int main()
 #elif __linux__
 	close(listening);
 #endif
-	return 0;
+}
+
+int main()
+{
+	std::string ipAddress = "127.0.0.1";
+	int java_port = 4999;
+	int linux_port = 54000;
+
+	std::thread threads[4];
+	
+	for (size_t i = 0; i < 4; i++)
+	{
+		threads[i] = std::thread(running, i % 2, ipAddress, (i / 2 % 2 ? linux_port : java_port));
+	}
 }

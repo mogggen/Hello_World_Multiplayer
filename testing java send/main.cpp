@@ -17,7 +17,11 @@
 #include <errno.h>
 #endif
 
-void running(const bool& sending, const std::string& ipAddress, const int& port)
+#ifdef __linux
+#define SOCKET int
+#endif
+
+SOCKET* setup(const std::string& ipAddress, const int& port)
 {
 #ifdef _WIN32
 	WSAData data;
@@ -26,12 +30,8 @@ void running(const bool& sending, const std::string& ipAddress, const int& port)
 	if (wsResult != 0)
 	{
 		std::cerr << "Can't start Winsock, Err #" << wsResult << std::endl;
-		return 0;
+		return nullptr;
 	}
-#endif
-
-#ifdef __linux
-#define SOCKET int
 #endif
 
 #ifndef errno
@@ -55,21 +55,26 @@ void running(const bool& sending, const std::string& ipAddress, const int& port)
 		std::cerr << prompt << '#' << error << std::endl;
 		closesocket(listening);
 		WSACleanup();
-		return 0;
+		return nullptr;
 	}
 #endif
+	return &listening;
+}
 
-	char recvbuf[1024];
-	recvbuf[0] = '\0';
-	char sendbuf[] = "Hello Neighbour";
-	while(true)
+void sending(const SOCKET& listening)
+{
+	char sendbuf[] = "Hello World!";
+	while (true)
 	{
-		if (sending)
-		{
-			send(listening, recvbuf, sizeof(recvbuf), 0);
-		}
-		else
-		{
+		Sleep(1000);
+		send(listening, sendbuf, sizeof(sendbuf), 0);
+	}
+}
+void receiving(const SOCKET& listening)
+{
+	char recvbuf[1024];
+	while (true)
+	{
 #ifdef __linux__
 		ssize_t r = recv(listening, recvbuf, sizeof(recvbuf), 0);
 		if (r == -1 && errno == EWOULDBLOCK)
@@ -80,16 +85,20 @@ void running(const bool& sending, const std::string& ipAddress, const int& port)
 		recv(listening, recvbuf, sizeof(recvbuf), 0);
 #endif
 		// handle the received data here
+		printf("%s", recvbuf);
 		/* code */
-		}
 	}
+
+// closes the socket after receiving a afk ping
 #ifdef _WIN32
-	closesocket(listening);
-	WSACleanup();
+		closesocket(listening);
+		WSACleanup();
 #elif __linux__
-	close(listening);
+		close(listening);
 #endif
 }
+
+
 
 int main()
 {
@@ -99,8 +108,16 @@ int main()
 
 	std::thread threads[4];
 	
-	for (size_t i = 0; i < 4; i++)
+	SOCKET java_connection = *setup(ipAddress, java_port);
+	//SOCKET linux_connection = *setup(ipAddress, linux_port);
+
+	threads[0] = std::thread(sending, java_connection);
+	threads[1] = std::thread(receiving, java_connection);
+	/*threads[2] = std::thread(sending, linux_connection);
+	threads[3] = std::thread(receiving, linux_connection);*/
+
+	while(true)
 	{
-		threads[i] = std::thread(running, i % 2, ipAddress, (i / 2 % 2 ? linux_port : java_port));
+		Sleep(1000);
 	}
 }

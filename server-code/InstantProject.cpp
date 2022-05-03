@@ -71,14 +71,14 @@ void running(const bool& sending, SOCKET listening)
 
 int main()
 {
-	#ifdef _WIN32
+#ifdef _WIN32
 	WSAData data;
 	WORD ver = MAKEWORD(2, 2);
 	int wsResult = WSAStartup(ver, &data);
 	if (wsResult != 0)
 	{
 		std::cerr << "Can't start Winsock, Err #" << wsResult << std::endl;
-		return 0;
+		return 1;
 	}
 #endif
 
@@ -88,7 +88,7 @@ int main()
 	if (listening == INVALID_SOCKET)
 	{
 		std::cerr << "Can't create a socket! Quitting" << std::endl;
-		return;
+		return 1;
 	}
 #endif
 	sockaddr_in socketAddr_in;

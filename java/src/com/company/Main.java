@@ -12,6 +12,8 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
 
+import static java.lang.Thread.sleep;
+
 public class Main extends JComponent implements Runnable {
 
     static ArrayList<Byte> byteBuf = new ArrayList<>();
@@ -164,7 +166,7 @@ public class Main extends JComponent implements Runnable {
 
                 @Override
                 public void keyReleased(KeyEvent e) {
-                    direction = -1;
+
                 }
             });
         }
@@ -285,6 +287,7 @@ public class Main extends JComponent implements Runnable {
 
     public void run()
     {
+        System.out.println(direction);
         while (true) {
             try {
                 if (direction != -1) {
@@ -299,10 +302,11 @@ public class Main extends JComponent implements Runnable {
 
     public static void main(String[] args) throws IOException, SocketException {
         Main sendingThread = new Main();
-        Thread receivingThread = new Thread(sendingThread);
-        receivingThread.start();
         GUI window = new GUI();
         runSetup(4999);
+        direction = 5;
+        Thread receivingThread = new Thread(sendingThread);
+        receivingThread.start();
         while(true) {
             // no specific protocol needs to be used
             try {

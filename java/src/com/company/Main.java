@@ -151,8 +151,8 @@ public class Main extends JComponent implements Runnable {
                 }
 
                 @Override
-                public void keyPressed(KeyEvent e) {
-                    switch (e.getKeyCode()) {
+                public void keyPressed(KeyEvent event) {
+                    switch (event.getKeyCode()) {
                         case 27 -> System.exit(0);
 
                         case 87, 38 -> direction = (byte)moveu.ordinal();
@@ -160,8 +160,12 @@ public class Main extends JComponent implements Runnable {
                         case 65, 37 -> direction = (byte)movel.ordinal();
                         case 68, 39 -> direction = (byte)mover.ordinal();
                     }
-                    //System.out.println(direction);
                     final Runnable runnable = (Runnable) Toolkit.getDefaultToolkit().getDesktopProperty("win.sound.exclamation"); if (runnable != null) runnable.run();
+                    try {
+                        speak();
+                    } catch (IOException exception) {
+                        exception.printStackTrace();
+                    }
                 }
 
                 @Override
@@ -304,9 +308,8 @@ public class Main extends JComponent implements Runnable {
         Main sendingThread = new Main();
         GUI window = new GUI();
         runSetup(4999);
-        direction = 5;
-        Thread receivingThread = new Thread(sendingThread);
-        receivingThread.start();
+        //Thread receivingThread = new Thread(sendingThread);
+        //receivingThread.start();
         while(true) {
             // no specific protocol needs to be used
             try {

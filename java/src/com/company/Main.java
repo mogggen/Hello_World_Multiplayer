@@ -12,9 +12,7 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
 
-import static java.lang.Thread.sleep;
-
-public class Main extends JComponent implements Runnable {
+public class Main extends JComponent {
 
     static ArrayList<Byte> byteBuf = new ArrayList<>();
     static ArrayList<Pixel> info = new ArrayList<>();
@@ -160,7 +158,7 @@ public class Main extends JComponent implements Runnable {
                         case 65, 37 -> direction = (byte)movel.ordinal();
                         case 68, 39 -> direction = (byte)mover.ordinal();
                     }
-                    final Runnable runnable = (Runnable) Toolkit.getDefaultToolkit().getDesktopProperty("win.sound.exclamation"); if (runnable != null) runnable.run();
+                    //final Runnable runnable = (Runnable) Toolkit.getDefaultToolkit().getDesktopProperty("win.sound.exclamation"); if (runnable != null) runnable.run();
                     try {
                         speak();
                     } catch (IOException exception) {
@@ -289,27 +287,11 @@ public class Main extends JComponent implements Runnable {
         out.write(pl);
     }
 
-    public void run()
-    {
-        System.out.println(direction);
-        while (true) {
-            try {
-                if (direction != -1) {
-                    speak();
-                    direction = -1;
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
 
     public static void main(String[] args) throws IOException, SocketException {
         Main sendingThread = new Main();
         GUI window = new GUI();
         runSetup(4999);
-        //Thread receivingThread = new Thread(sendingThread);
-        //receivingThread.start();
         while(true) {
             // no specific protocol needs to be used
             try {

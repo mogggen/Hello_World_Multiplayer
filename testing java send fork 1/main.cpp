@@ -109,12 +109,16 @@ int main()
 	std::thread threads[4];
 	
 	SOCKET java_connection = *setup(ipAddress, java_port);
-	//SOCKET linux_connection = *setup(ipAddress, linux_port);
 
 	threads[0] = std::thread(sending, java_connection);
 	threads[1] = std::thread(receiving, java_connection);
-	/*threads[2] = std::thread(sending, linux_connection);
-	threads[3] = std::thread(receiving, linux_connection);*/
+
+	std::cin.get();
+
+	SOCKET linux_connection = *setup(ipAddress, linux_port);
+
+	threads[2] = std::thread(sending, linux_connection);
+	threads[3] = std::thread(receiving, linux_connection);
 
 	while(true)
 	{

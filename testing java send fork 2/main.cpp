@@ -122,20 +122,25 @@ int main()
 {
 	std::string ipAddress = "127.0.0.1";
 	std::vector<int> starting_port;
-	starting_port.push_back(54000);
-	// the client leaving should send which port they used so it could be reused.
-	// count ports until one that isnot in use appears
+	starting_port.push_back(4999); // linux_port
+	// the client leaving should send which port they used so it could be removed from the vector.
+	// count ports until one that isn't in use appears.
 
 	std::vector<std::thread> threads;
+	threads.resize(4);
 	
-	SOCKET java_connection = *setup(ipAddress, first_avalible_port());
-	//SOCKET linux_connection = *setup(ipAddress, linux_port);
+	SOCKET java_connection = *setup(ipAddress, starting_port[0]);
 
 	threads[0] = std::thread(sending, java_connection);
 	threads[1] = std::thread(receiving, java_connection);
-	/*threads[2] = std::thread(sending, linux_connection);
-	threads[3] = std::thread(receiving, linux_connection);*/
 
+	std::cin.get();
+
+	SOCKET linux_connection = *setup(ipAddress, first_avalible_port(starting_port));
+	
+	threads[2] = std::thread(sending, linux_connection);
+	threads[3] = std::thread(receiving, linux_connection);
+	
 	while(true)
 	{
 		Sleep(1000);

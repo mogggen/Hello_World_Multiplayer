@@ -23,20 +23,20 @@
 #define SOCKET int
 #endif
 
-const int first_avalible_port(std::vector<int>& h)
+const int first_avalible_port(std::vector<int>& vec)
 {
-	sort(h.begin(), h.end());
-	for (size_t i = 0; i < h.size() - 1; i++)
+	sort(vec.begin(), vec.end());
+	for (size_t i = 0; i < vec.size() - 1; i++)
 	{
-		if (h[i] + 1 != h[i + 1])
+		if (vec[i] + 1 != vec[i + 1])
 		{
-			h.push_back(h[i] + 1);
-			return h[i] + 1;
+			vec.push_back(vec[i] + 1);
+			return vec[i] + 1;
 		}
 	}
 	// no gaps
-	h.push_back(h[h.size() - 1] + 1);
-	return h[h.size() - 1];
+	vec.push_back(vec[vec.size() - 1] + 1);
+	return vec[vec.size() - 1];
 }
 
 SOCKET* setup(const std::string& ipAddress, const int& port)
@@ -61,7 +61,9 @@ SOCKET* setup(const std::string& ipAddress, const int& port)
 	sockaddr_in socketAddr_in;
 	socketAddr_in.sin_family = AF_INET;
 	socketAddr_in.sin_port = htons(port);
+#ifdef __linux
 	inet_pton(AF_INET, ipAddress.c_str(), &socketAddr_in.sin_addr);
+#endif
 
 	int conRes = connect(listening, (sockaddr*)&socketAddr_in, sizeof(socketAddr_in));
 
@@ -122,14 +124,34 @@ int main()
 {
 	std::string ipAddress = "127.0.0.1";
 	std::vector<int> starting_port;
-	starting_port.push_back(4999); // linux_port
+	starting_port.push_back(54000); // linux_port
 	// the client leaving should send which port they used so it could be removed from the vector.
 	// count ports until one that isn't in use appears.
 
+	SOCKET listening = *setup(ipAddress, starting_port[0]);
+
+	// Fill in a hint structure
+	sockaddr_in hint;
+	hint.sin_family = AF_INET;
+	hint.sin_port = htons(first_avalible_port(starting_port));
+	inet_pton(AF_INET, ipAddress.c_str(), &hint.sin_addr);
+
+	bind(listening, (sockaddr*)&hint, sizeof(hint));
+
+	listen(listening, 0/*SOMAXCON*/);
+
+	SOCKET java_connection = *setup(ipAddress, 4999);
+
+	sockaddr* accepted_address = nullptr;
+	int* accepted_address_length = nullptr;
+	SOCKET client = accept(listening, accepted_address, accepted_address_length);
+	std::cout << accepted_address;
+	if (accepted_address_length != nullptr)
+		printf("%d", *accepted_address_length);
+	
 	std::vector<std::thread> threads;
 	threads.resize(4);
 	
-	SOCKET java_connection = *setup(ipAddress, starting_port[0]);
 
 	threads[0] = std::thread(sending, java_connection);
 	threads[1] = std::thread(receiving, java_connection);
@@ -141,8 +163,6 @@ int main()
 	threads[2] = std::thread(sending, linux_connection);
 	threads[3] = std::thread(receiving, linux_connection);
 	
-	while(true)
-	{
-		Sleep(1000);
-	}
+	// when all threads have joined
+	std::cin.get();
 }

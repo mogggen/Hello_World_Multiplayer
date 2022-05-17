@@ -43,7 +43,9 @@ SOCKET* setup(const std::string& ipAddress, const int& port)
 	sockaddr_in socketAddr_in;
 	socketAddr_in.sin_family = AF_INET;
 	socketAddr_in.sin_port = htons(port);
+#ifdef __linux
 	inet_pton(AF_INET, ipAddress.c_str(), &socketAddr_in.sin_addr);
+#endif
 
 	int conRes = connect(listening, (sockaddr*)&socketAddr_in, sizeof(socketAddr_in));
 

@@ -6,38 +6,26 @@
 #include <cstring>
 #include <vector>
 #include <thread>
-#ifdef _WIN32
 #include <WS2tcpip.h>
+
+#include "main.h"
 #pragma comment(lib, "ws2_32.lib")
-#elif __linux__
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <unistd.h>
-#include <errno.h>
-#endif
 
-#ifdef __linux
-#define SOCKET int
-#endif
+unsigned int seqNum;
 
-const int first_avalible_port(std::vector<int>& vec)
+struct connection
 {
-	sort(vec.begin(), vec.end());
-	for (size_t i = 0; i < vec.size() - 1; i++)
-	{
-		if (vec[i] + 1 != vec[i + 1])
-		{
-			vec.push_back(vec[i] + 1);
-			return vec[i] + 1;
-		}
-	}
-	// no gaps
-	vec.push_back(vec[vec.size() - 1] + 1);
-	return vec[vec.size() - 1];
-}
+	unsigned int id;
+	
+	ObjectDesc description;
+	ObjectForm form;
+	Coordinate coord;
+	
+	SOCKET client;
+	std::thread recvThread;
+};
+
+std::vector<connection> connections;
 
 SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
 {
@@ -54,7 +42,7 @@ SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
 	if (listening == INVALID_SOCKET)
 	{
 		std::cerr << "Can't create a socket! Quitting" << std::endl;
-		exit(0);
+		exit(1);
 	}
 
 
@@ -75,28 +63,43 @@ SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
 	return listening;
 }
 
-void sending(const SOCKET& s)
+void sending(char buf[], const SOCKET& s)
+{	
+	send(s, buf, sizeof(buf), 0);
+}
+
+void sendAll(char buf[])
 {
-	char sendbuf[] = "Hello World!";
-	while (true)
+	for (size_t i = 0; i < connections.size(); i++)
 	{
-		Sleep(1000);
-		send(s, sendbuf, sizeof(sendbuf), 0);
+		send(connections[i].client, buf, sizeof(buf), 0);
 	}
 }
-void receiving(const SOCKET& s)
+
+void receiving(char buf[], const SOCKET& s)
 {
-	char recvbuf[1024];
-	for (char& c : recvbuf)
-	{
-		c = '\0';
-	}
 	while (true)
 	{
-		recv(s, recvbuf, sizeof(recvbuf), 0);
-		// handle the received data here
-		printf("%s\r\n", recvbuf);
-		/* code */
+		recv(s, buf, sizeof(buf), 0);
+
+		if (isItOkToMove())
+		{
+			// parse data
+			// forward message
+		}
+
+		// on server check
+		if (okToMove())
+		{
+			sendAll(NewPlayerPostion);
+		}
+		else
+		{
+			// do nothing
+		}
+		// from java to server
+		
+		printf("%s\r\n", buf);
 	}
 
 // closes the socket after receiving a afk ping
@@ -104,33 +107,42 @@ void receiving(const SOCKET& s)
 	WSACleanup();
 }
 
-
+const Coordinate first_avalible_Coordinate(std::vector<connection>& occupied)
+{
+	sort(occupied.begin(), occupied.end());
+	for (size_t i = 0; i < occupied.size() - 1; i++)
+	{
+		if (occupied[i] + 1 != occupied[i + 1])
+		{
+			occupied.push_back(occupied[i] + 1);
+			return occupied[i] + 1;
+		}
+	}
+	// no gaps
+	occupied.push_back(occupied[occupied.size() - 1] + 1);
+	return occupied[occupied.size() - 1];
+}
 
 int main()
 {
 	std::string ipAddress = "127.0.0.1";
-	std::vector<int> starting_port;
-	starting_port.push_back(54000); // linux_port
-	// the client leaving should send which port they used so it could be removed from the vector.
-	// count ports until one that isn't in use appears.
+	int starting_port = 54000; // linux_port
+	unsigned int newClientId;
 
-	SOCKET listening = setup_listening(ipAddress, starting_port[0]);
-
-	/*SOCKET client = accept(listening, nullptr, nullptr);
-	printf("first connection established!\r\n");
-	SOCKET client2 = accept(listening, nullptr, nullptr);
-	printf("second connection established!\r\n");
-	. . .
-	*/
-
-	std::vector<std::thread> threads;
+	SOCKET listening = setup_listening(ipAddress, starting_port);
 
 	while (true)
 	{
 		SOCKET client = accept(listening, nullptr, nullptr);
 
-		threads.push_back(std::thread(sending, client));
-		threads.push_back(std::thread(receiving, client));
+		connections.push_back({
+			newClientId++,
+			NonHuman,
+			Pyramid,
+			first_avalible_Coordinate(connections),
+			client,
+			std::thread(receiving, client)
+			});
 	}
 
 	// when all threads have joined

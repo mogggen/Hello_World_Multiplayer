@@ -288,7 +288,7 @@ public class Main extends JComponent {
     }
 
 
-    public static void main(String[] args) throws IOException, SocketException {
+    public static void main(String[] args) throws IOException {
         Main sendingThread = new Main();
         GUI window = new GUI();
         runSetup(4999);

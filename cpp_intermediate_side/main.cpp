@@ -1,80 +1,131 @@
 #include <iostream>
 #include <string>
+#include <thread>
 #include <WS2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
-using namespace std;
+SOCKET java_sock;
+SOCKET linux_sock;
+
+void recv_from_java()
+{
+	char buf[1024];
+	while (true)
+	{
+		recv(java_sock, buf, sizeof(buf), 0);
+		send(linux_sock, buf, sizeof(buf), 0);
+	}
+
+	// closesocket(java_sock);
+	// WSACleanup();
+}
+
+void recv_from_server()
+{
+	char buf[1024];
+	while (true)
+	{
+		recv(linux_sock, buf, sizeof(buf), 0);
+		send(java_sock, buf, sizeof(buf), 0);
+	}
+	
+	// closesocket(linux_sock);
+	// WSACleanup();
+}
 
 void main()
 {
-	string ipAddress = "127.0.0.1";			// IP Address of the server
-	int port = 54000;						// Listening port # on the server
+	std::thread threads[2];
+	std::string ipAddress = "127.0.0.1";
+	int java_port = 4999;
+	int linux_port = 54000;
 
-	// Initialize WinSock
-	WSAData data;
-	WORD ver = MAKEWORD(2, 2);
-	int wsResult = WSAStartup(ver, &data);
-	if (wsResult != 0)
+	// setup java socket
 	{
-		cerr << "Can't start Winsock, Err #" << wsResult << endl;
-		return;
-	}
-
-	// Create socket
-	SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock == INVALID_SOCKET)
-	{
-		cerr << "Can't create socket, Err #" << WSAGetLastError() << endl;
-		WSACleanup();
-		return;
-	}
-
-	// Fill in a hint structure
-	sockaddr_in hint;
-	hint.sin_family = AF_INET;
-	hint.sin_port = htons(port);
-	inet_pton(AF_INET, ipAddress.c_str(), &hint.sin_addr);
-
-	// Connect to server
-	int connResult = connect(sock, (sockaddr*)&hint, sizeof(hint));
-	if (connResult == SOCKET_ERROR)
-	{
-		cerr << "Can't connect to server, Err #" << WSAGetLastError() << endl;
-		closesocket(sock);
-		WSACleanup();
-		return;
-	}
-
-	// Do-while loop to send and receive data
-	char buf[4096];
-	string userInput;
-
-	do
-	{
-		// Prompt the user for some text
-		cout << "> ";
-		getline(cin, userInput);
-
-		if (userInput.size() > 0)		// Make sure the user has typed in something
+		WSAData data;
+		WORD ver = MAKEWORD(2, 2);
+		int wsResult = WSAStartup(ver, &data);
+		if (wsResult != 0)
 		{
-			// Send the text
-			int sendResult = send(sock, userInput.c_str(), userInput.size() + 1, 0);
-			if (sendResult != SOCKET_ERROR)
-			{
-				// Wait for response
-				ZeroMemory(buf, 4096);
-				int bytesReceived = recv(sock, buf, 4096, 0);
-				if (bytesReceived > 0)
-				{
-					// Echo response to console
-					cout << "SERVER> " << string(buf, 0, bytesReceived) << endl;
-				}
-			}
+			std::cerr << "Can't start Winsock, Err #" << wsResult << std::endl;
+			return;
 		}
 
-	} while (userInput.size() > 0);
+		// Create socket
+		java_sock = socket(AF_INET, SOCK_STREAM, 0);
+		if (java_sock == INVALID_SOCKET)
+		{
+			std::cerr << "Can't create socket, Err #" << WSAGetLastError() << std::endl;
+			WSACleanup();
+			return;
+		}
+
+		// Fill in a hint structure
+		sockaddr_in hint;
+		hint.sin_family = AF_INET;
+		hint.sin_port = htons(java_port);
+		inet_pton(AF_INET, ipAddress.c_str(), &hint.sin_addr);
+
+		// Connect to server
+		int connResult = connect(java_sock, (sockaddr*)&hint, sizeof(hint));
+		if (connResult == SOCKET_ERROR)
+		{
+			std::cerr << "Can't connect to server, Err #" << WSAGetLastError() << std::endl;
+			closesocket(java_sock);
+			WSACleanup();
+			return;
+		}
+		printf("Java socket connected, press to continue");
+	}
+	std::cin.get();
+
+	// setup linux socket
+	{
+		WSAData data;
+		WORD ver = MAKEWORD(2, 2);
+		int wsResult = WSAStartup(ver, &data);
+		if (wsResult != 0)
+		{
+			std::cerr << "Can't start Winsock, Err #" << wsResult << std::endl;
+			return;
+		}
+
+		// Create socket
+		linux_sock = socket(AF_INET, SOCK_STREAM, 0);
+		if (linux_sock == INVALID_SOCKET)
+		{
+			std::cerr << "Can't create socket, Err #" << WSAGetLastError() << std::endl;
+			WSACleanup();
+			return;
+		}
+
+		// Fill in a hint structure
+		sockaddr_in hint;
+		hint.sin_family = AF_INET;
+		hint.sin_port = htons(linux_port);
+		inet_pton(AF_INET, ipAddress.c_str(), &hint.sin_addr);
+
+		// Connect to server
+		int connResult = connect(linux_sock, (sockaddr*)&hint, sizeof(hint));
+		if (connResult == SOCKET_ERROR)
+		{
+			std::cerr << "Can't connect to server, Err #" << WSAGetLastError() << std::endl;
+			closesocket(linux_sock);
+			WSACleanup();
+			return;
+		}
+	}
+
+	threads[0] = std::thread(recv_from_java);
+	threads[1] = std::thread(recv_from_server);
+
+	while(true)
+	{
+		Sleep(1000);
+	}
 
 	// Gracefully close down everything
-	closesocket(sock);
+	closesocket(java_sock);
+	closesocket(linux_sock);
 	WSACleanup();
 }

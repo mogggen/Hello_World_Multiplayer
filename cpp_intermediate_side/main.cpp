@@ -119,9 +119,10 @@ void main()
 	threads[0] = std::thread(recv_from_java);
 	threads[1] = std::thread(recv_from_server);
 
-	while(true)
+	for (size_t i = 0; i < sizeof(threads) / sizeof(*threads); i++)
 	{
-		Sleep(1000);
+		if (threads[i].joinable())
+			threads[i].join();
 	}
 
 	// Gracefully close down everything

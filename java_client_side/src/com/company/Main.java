@@ -101,7 +101,7 @@ public class Main extends JComponent {
         MsgHead head;
         EventType type;
     };
-    //Variantions of EventMsg
+    //Variations of EventMsg
     public class MoveEvent {
         EventMsg event;
         Coordinate pos;         //New object position
@@ -110,7 +110,7 @@ public class Main extends JComponent {
     //TEXT MESSAGE
     public class TextMessageMsg {
         MsgHead head;
-        char text[];   //NULL-terminerad array of chars.
+        char text[];   //NULL-terminated array of chars.
     };
 
     static byte direction = -1;

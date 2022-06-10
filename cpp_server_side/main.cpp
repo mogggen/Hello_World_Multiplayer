@@ -76,27 +76,28 @@ void sendAll(char buf[])
 	}
 }
 
-void receiving(char buf[], const SOCKET& s)
+void receiving(const SOCKET& s)
 {
+	char buf[1024];
 	while (true)
 	{
 		recv(s, buf, sizeof(buf), 0);
 
-		if (isItOkToMove())
-		{
-			// parse data
-			// forward message
-		}
+		//if (isItOkToMove())
+		//{
+		//	// parse data
+		//	// forward message
+		//}
 
-		// on server check
-		if (okToMove())
-		{
-			sendAll(NewPlayerPostion);
-		}
-		else
-		{
-			// do nothing
-		}
+		//// on server check
+		//if (okToMove())
+		//{
+		//	sendAll(NewPlayerPostion);
+		//}
+		//else
+		//{
+		//	// do nothing
+		//}
 		// from java to server
 		
 		printf("%s\r\n", buf);
@@ -109,25 +110,26 @@ void receiving(char buf[], const SOCKET& s)
 
 const Coordinate first_avalible_Coordinate(std::vector<connection>& occupied)
 {
-	sort(occupied.begin(), occupied.end());
-	for (size_t i = 0; i < occupied.size() - 1; i++)
-	{
-		if (occupied[i] + 1 != occupied[i + 1])
-		{
-			occupied.push_back(occupied[i] + 1);
-			return occupied[i] + 1;
-		}
-	}
-	// no gaps
-	occupied.push_back(occupied[occupied.size() - 1] + 1);
-	return occupied[occupied.size() - 1];
+	//sort(occupied.begin(), occupied.end());
+	//for (size_t i = 0; i < occupied.size() - 1; i++)
+	//{
+	//	if (occupied[i] + 1 != occupied[i + 1])
+	//	{
+	//		occupied.push_back(occupied[i] + 1);
+	//		return occupied[i] + 1;
+	//	}
+	//}
+	//// no gaps
+	//occupied.push_back(occupied[occupied.size() - 1] + 1);
+	//return occupied[occupied.size() - 1];
+	return { -200, -200 };
 }
 
 int main()
 {
 	std::string ipAddress = "127.0.0.1";
 	int starting_port = 54000; // linux_port
-	unsigned int newClientId;
+	unsigned int newClientId = 0u;
 
 	SOCKET listening = setup_listening(ipAddress, starting_port);
 
@@ -146,5 +148,9 @@ int main()
 	}
 
 	// when all threads have joined
-	std::cin.get();
+	for (size_t i = 0; i < connections.size(); i++)
+	{
+		if (connections[i].recvThread.joinable())
+			connections[i].recvThread.join();
+	}
 }

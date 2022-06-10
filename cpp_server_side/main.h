@@ -15,7 +15,7 @@ enum ObjectForm {
     Cone
 };
 
-class Coordinate {
+struct Coordinate {
     int x;
     int y;
 };

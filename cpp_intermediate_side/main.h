@@ -80,7 +80,7 @@ struct EventMsg {
 };
 //Variantions of EventMsg
 struct MoveEvent {
-    EventMsg event;
+    EventMsg eventMsg;
     Coordinate pos;         //New object position
     Coordinate dir;         //New object direction
 };

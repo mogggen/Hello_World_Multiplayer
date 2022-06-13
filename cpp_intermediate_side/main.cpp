@@ -4,15 +4,32 @@
 #include <WS2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
 
+#include "main.h"
+
 SOCKET java_sock;
 SOCKET linux_sock;
+
+void leave(SOCKET sock)
+{
+	// 1337 = clientId
+	LeaveMsg leaveMsg =
+	{
+		{0, 0, 1337, Leave}
+	};
+	leaveMsg.head.length = sizeof(LeaveMsg);
+	send(sock, (char*)&leaveMsg, leaveMsg.head.length, 0);
+}
 
 void recv_from_java()
 {
 	char buf[1024];
 	while (true)
 	{
-		recv(java_sock, buf, sizeof(buf), 0);
+		int count = recv(java_sock, buf, sizeof(buf), 0);
+		if (count == SOCKET_ERROR)
+		{
+			leave(linux_sock);
+		}
 		send(linux_sock, buf, sizeof(buf), 0);
 	}
 
@@ -25,7 +42,12 @@ void recv_from_server()
 	char buf[1024];
 	while (true)
 	{
-		recv(linux_sock, buf, sizeof(buf), 0);
+		int count = recv(linux_sock, buf, sizeof(buf), 0);
+		if (count == SOCKET_ERROR)
+		{
+			strcpy(buf, std::string("disconnected from server!").c_str());
+			send(java_sock, buf, sizeof(buf), 0);
+		}
 		send(java_sock, buf, sizeof(buf), 0);
 	}
 	

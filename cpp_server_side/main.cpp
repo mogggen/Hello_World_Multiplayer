@@ -11,21 +11,87 @@
 #include "main.h"
 #pragma comment(lib, "ws2_32.lib")
 
-unsigned int seqNum;
-
 struct connection
 {
 	unsigned int id;
-	
+
 	ObjectDesc description;
 	ObjectForm form;
 	Coordinate coord;
-	
+
 	SOCKET client;
 	std::thread recvThread;
 };
 
 std::vector<connection> connections;
+unsigned int seqNum;
+
+void sendAll(char buf[])
+{
+	for (size_t i = 0; i < connections.size(); i++)
+		send(connections[i].client, buf, sizeof(buf), 0);
+}
+
+void sendAll(const char* buf, int len)
+{
+	for (size_t i = 0; i < connections.size(); i++)
+		send(connections[i].client, buf, sizeof(len), 0);
+}
+
+void moved(const int& clientid, const Coordinate& pos)
+{
+	NewPlayerPositionMsg newPlayerPositionMsg =
+	{
+		/*ChangeMsg*/{
+			/*MsgHead*/{
+				sizeof(NewPlayerPositionMsg),
+				seqNum++,
+				clientid,
+				Change
+				},
+		/*ChangeType*/{NewPlayerPosition}
+		},
+		/*Coordinate*/{pos},
+		/*Coordinate*/{0, 0}
+	};
+	sendAll((char*)&newPlayerPositionMsg, newPlayerPositionMsg.msg.head.length);
+}
+
+void joined(const int& clientid)
+{
+	NewPlayerMsg newPlayerMsg =
+	{
+		/*ChangeMsg*/{
+			/*MsgHead*/{
+				sizeof(NewPlayerMsg),
+				seqNum++,
+				clientid,
+				Change
+				},
+			/*ChangeType*/{NewPlayer}
+		},
+		Human,
+		Pyramid,
+		'-'
+	};
+}
+
+void kicked(const int& clientid)
+{
+	PlayerLeaveMsg leaveMsg =
+	{
+		/*ChangeMsg*/{
+			/*MsgHead*/ {
+				sizeof(PlayerLeaveMsg),
+				seqNum++,
+				clientid,
+				Change
+				},
+		/*ChangeType*/{PlayerLeave}
+		}
+	};
+	sendAll((char*)&leaveMsg, leaveMsg.msg.head.length);
+}
 
 SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
 {
@@ -68,20 +134,62 @@ void sending(char buf[], const SOCKET& s)
 	send(s, buf, sizeof(buf), 0);
 }
 
-void sendAll(char buf[])
-{
-	for (size_t i = 0; i < connections.size(); i++)
-	{
-		send(connections[i].client, buf, sizeof(buf), 0);
-	}
-}
+
 
 void receiving(const SOCKET& s)
 {
 	char buf[1024];
 	while (true)
 	{
-		recv(s, buf, sizeof(buf), 0);
+		int count = recv(s, buf, sizeof(buf), 0);
+		if (count == SOCKET_ERROR)
+		{
+			//std::cerr << "SERVER Error code: " << WSAGetLastError() << std::endl;
+			// broadcast that the client has left the server
+			//kicked(player);
+			break;
+		}
+
+		MsgHead* msgHead = (MsgHead*)buf;
+
+		JoinMsg* joinMsg = (JoinMsg*)buf;
+		LeaveMsg* leaveMsg = (LeaveMsg*)buf;
+		EventMsg* eventMsg = (EventMsg*)buf;
+
+		while (msgHead <= (MsgHead*)(buf + sizeof(buf) / sizeof(*buf)))
+		{
+			switch (msgHead->type)
+			{
+			//case Join:
+			//	connections.push_back({
+			//		joinMsg->head.id,
+			//		joinMsg->desc,
+			//		joinMsg->form,
+			//		joinMsg->
+			//		});
+			//	joined(joinMsg->msg.head.id);
+			//	break;
+
+			//case PlayerLeave:
+			//	// id tells you which to remove and what squre the java clients should stop rendering
+			//	kicked(playerLeaveMsg->msg.head.id);
+			//	break;
+
+			//case NewPlayerPosition:
+			//	break;
+
+			default:
+				std::cout << "switch defaulted" << std::endl;
+				std::cin.get();
+				break;
+			}
+
+			msgHead = (MsgHead*)(msgHead + msgHead->length);
+
+			joinMsg = (JoinMsg*)msgHead;
+			leaveMsg = (LeaveMsg*)msgHead;
+			eventMsg = (EventMsg*)msgHead;
+		}
 
 		//if (isItOkToMove())
 		//{
@@ -133,9 +241,9 @@ int main()
 
 	SOCKET listening = setup_listening(ipAddress, starting_port);
 
-	while (true)
+	for (SOCKET client;;)
 	{
-		SOCKET client = accept(listening, nullptr, nullptr);
+		client = accept(listening, nullptr, nullptr);
 
 		connections.push_back({
 			newClientId++,
@@ -145,9 +253,10 @@ int main()
 			client,
 			std::thread(receiving, client)
 			});
+		joined(newClientId);
 	}
 
-	// when all threads have joined
+	// blocking until all threads have joined (which will never happen naturally due to the infinite loop)
 	for (size_t i = 0; i < connections.size(); i++)
 	{
 		if (connections[i].recvThread.joinable())

@@ -246,6 +246,11 @@ public class Main extends JComponent {
 
         byte[] buf = new byte[1024];
         int count = in.read(buf);
+        if (count == -1)
+        {
+            System.out.println("Error: unable to receive");
+            System.exit(1);
+        }
 //        //Reformat
 //        for (int k = 0; k < byteBuf.size(); k += 3) {
 //            //info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k + 1)), Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
@@ -289,7 +294,6 @@ public class Main extends JComponent {
 
 
     public static void main(String[] args) throws IOException {
-        Main sendingThread = new Main();
         GUI window = new GUI();
         runSetup(4999);
         while(true) {
@@ -298,6 +302,7 @@ public class Main extends JComponent {
                 listen(window);
             }catch (SocketException s){
                 s.printStackTrace();
+                System.exit(1);
             }
             System.out.println("received data");
         }

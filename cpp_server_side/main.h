@@ -39,7 +39,7 @@ struct JoinMsg {
     MsgHead head;
     ObjectDesc desc;
     ObjectForm form;
-    char name[];   //null terminated!,or empty
+    char name[1];   //null terminated!,or empty
 };
 //LEAVE MESSAGE (CLIENT->SERVER)
 struct LeaveMsg {

@@ -9,12 +9,11 @@
 SOCKET java_sock;
 SOCKET linux_sock;
 
-void leave(SOCKET sock)
+void leave(SOCKET sock, const int& clientId)
 {
-	// 1337 = clientId
 	LeaveMsg leaveMsg =
 	{
-		{0, 0, 1337, Leave}
+		{0, 0, clientId, Leave}
 	};
 	leaveMsg.head.length = sizeof(LeaveMsg);
 	send(sock, (char*)&leaveMsg, leaveMsg.head.length, 0);
@@ -28,7 +27,7 @@ void recv_from_java()
 		int count = recv(java_sock, buf, sizeof(buf), 0);
 		if (count == SOCKET_ERROR)
 		{
-			leave(linux_sock);
+			leave(linux_sock, 0);
 		}
 		send(linux_sock, buf, sizeof(buf), 0);
 	}
@@ -97,9 +96,9 @@ void main()
 			WSACleanup();
 			return;
 		}
-		printf("Java socket connected, press to continue");
+		printf("Java socket connected\n");
 	}
-	std::cin.get();
+	//system("pause");
 
 	// setup linux socket
 	{
@@ -136,6 +135,7 @@ void main()
 			WSACleanup();
 			return;
 		}
+		printf("Linux socket connected\n");
 	}
 
 	threads[0] = std::thread(recv_from_java);

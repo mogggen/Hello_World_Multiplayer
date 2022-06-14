@@ -6,12 +6,19 @@
 #include <cstring>
 #include <vector>
 #include <thread>
+#include <mutex>
 #include <WS2tcpip.h>
 
 #include "main.h"
 #pragma comment(lib, "ws2_32.lib")
 
-struct connection
+bool operator==(const Coordinate& lhs, Coordinate& rhs)
+{
+	return lhs.x == rhs.x && lhs.y == rhs.y;
+}
+
+struct ConnectionThread;
+struct Connection
 {
 	unsigned int id;
 
@@ -20,26 +27,35 @@ struct connection
 	Coordinate coord;
 
 	SOCKET client;
+	ConnectionThread* holdingHands;
+};
+
+struct ConnectionThread
+{
+	Connection* holdingHands;
 	std::thread recvThread;
 };
 
-std::vector<connection> connections;
+std::mutex gameBoard;
+std::vector<Connection> connections;
+std::vector<ConnectionThread> connectionThreads;
 unsigned int seqNum;
-
-void sendAll(char buf[])
-{
-	for (size_t i = 0; i < connections.size(); i++)
-		send(connections[i].client, buf, sizeof(buf), 0);
-}
 
 void sendAll(const char* buf, int len)
 {
+	gameBoard.lock();
 	for (size_t i = 0; i < connections.size(); i++)
 		send(connections[i].client, buf, sizeof(len), 0);
+	gameBoard.unlock();
 }
 
-void moved(const int& clientid, const Coordinate& pos)
+void moved(const int& clientid, const Coordinate& newPos)
 {
+	for (Connection& c : connections)
+	{
+		if (newPos == c.coord)
+			return; // no new player position to broadcast
+	}
 	NewPlayerPositionMsg newPlayerPositionMsg =
 	{
 		/*ChangeMsg*/{
@@ -51,7 +67,7 @@ void moved(const int& clientid, const Coordinate& pos)
 				},
 		/*ChangeType*/{NewPlayerPosition}
 		},
-		/*Coordinate*/{pos},
+		/*Coordinate*/{newPos},
 		/*Coordinate*/{0, 0}
 	};
 	sendAll((char*)&newPlayerPositionMsg, newPlayerPositionMsg.msg.head.length);
@@ -74,6 +90,7 @@ void joined(const int& clientid)
 		Pyramid,
 		'-'
 	};
+	sendAll((char*)&newPlayerMsg, newPlayerMsg.msg.head.length);
 }
 
 void kicked(const int& clientid)
@@ -154,29 +171,50 @@ void receiving(const SOCKET& s)
 
 		JoinMsg* joinMsg = (JoinMsg*)buf;
 		LeaveMsg* leaveMsg = (LeaveMsg*)buf;
-		EventMsg* eventMsg = (EventMsg*)buf;
+		MoveEvent* moveEvent = (MoveEvent*)buf;
 
 		while (msgHead <= (MsgHead*)(buf + sizeof(buf) / sizeof(*buf)))
 		{
 			switch (msgHead->type)
 			{
-			//case Join:
-			//	connections.push_back({
-			//		joinMsg->head.id,
-			//		joinMsg->desc,
-			//		joinMsg->form,
-			//		joinMsg->
-			//		});
-			//	joined(joinMsg->msg.head.id);
-			//	break;
+			case Join:
+				for (size_t i = 0; i < connections.size(); i++)
+				{
+					if (msgHead->id == connections[i].id)
+					{
+						connections[i].description = joinMsg->desc;
+						connections[i].form = joinMsg->form;
+					}
+				}
 
-			//case PlayerLeave:
-			//	// id tells you which to remove and what squre the java clients should stop rendering
-			//	kicked(playerLeaveMsg->msg.head.id);
-			//	break;
+				joined(joinMsg->head.id);
+				break;
 
-			//case NewPlayerPosition:
-			//	break;
+			case Leave:
+				for (size_t i = 0; i < connections.size(); i++)
+				{
+					if (msgHead->id == connections[i].id)
+					{
+						delete connections[i].holdingHands;
+						delete connectionThreads[i].holdingHands;
+
+						connections.erase(connections.begin() + i);
+						connectionThreads.erase(connectionThreads.begin() + i);
+					}
+				}
+				
+				kicked(leaveMsg->head.id);
+				break;
+
+			case Event:
+				for (size_t i = 0; i < connections.size(); i++)
+				{
+					if (moveEvent->event.head.id == connections[i].id)
+					{
+						moved(connections[i].id, moveEvent->pos);
+					}
+				}
+				break;
 
 			default:
 				std::cout << "switch defaulted" << std::endl;
@@ -188,7 +226,7 @@ void receiving(const SOCKET& s)
 
 			joinMsg = (JoinMsg*)msgHead;
 			leaveMsg = (LeaveMsg*)msgHead;
-			eventMsg = (EventMsg*)msgHead;
+			moveEvent = (MoveEvent*)msgHead;
 		}
 
 		//if (isItOkToMove())
@@ -216,21 +254,62 @@ void receiving(const SOCKET& s)
 	WSACleanup();
 }
 
-const Coordinate first_avalible_Coordinate(std::vector<connection>& occupied)
+const Coordinate first_avalible_Coordinate()
 {
-	//sort(occupied.begin(), occupied.end());
-	//for (size_t i = 0; i < occupied.size() - 1; i++)
-	//{
-	//	if (occupied[i] + 1 != occupied[i + 1])
-	//	{
-	//		occupied.push_back(occupied[i] + 1);
-	//		return occupied[i] + 1;
-	//	}
-	//}
-	//// no gaps
-	//occupied.push_back(occupied[occupied.size() - 1] + 1);
-	//return occupied[occupied.size() - 1];
-	return { -200, -200 };
+	// stupid bubble sort
+	gameBoard.lock();
+	for (size_t i = 0; i < connections.size(); i++)
+	{
+		for (size_t j = 1; j < connections.size() - i; j++)
+		{
+			Connection temp;
+			if (connections[j - 1].coord.y > connections[j].coord.y)
+			{
+				temp = connections[j - 1];
+				connections[j - 1] = connections[j];
+				connections[j] = temp;
+			}
+			else if (connections[j - 1].coord.y == connections[j].coord.y)
+			{
+				if (connections[j - 1].coord.x > connections[j].coord.x)
+				{
+					temp = connections[j - 1];
+					connections[j - 1] = connections[j];
+					connections[j] = temp;
+				}
+			}
+		}
+	}
+	
+	for (Coordinate start = { -200, -200 };;)
+	{
+		for (Connection c : connections)
+		{
+			if (start == c.coord)
+			{
+				if (start.x > 200) // row is full so move to next one
+				{
+					if (start.y > 200) // server is full
+					{
+						// nope
+					}
+					start = { -200, start.y++ };
+				}
+				else
+				{
+					start.x++;
+				}
+			}
+			else
+			{
+				gameBoard.unlock();
+				return start;
+			}
+		}
+	}
+	// never happens (unless you have 160801 clients connected)
+	gameBoard.unlock();
+	return Coordinate{ 201, 201 };
 }
 
 int main()
@@ -244,22 +323,36 @@ int main()
 	for (SOCKET client;;)
 	{
 		client = accept(listening, nullptr, nullptr);
+		
+		gameBoard.lock();
 
 		connections.push_back({
 			newClientId++,
 			NonHuman,
 			Pyramid,
-			first_avalible_Coordinate(connections),
+			first_avalible_Coordinate(),
 			client,
-			std::thread(receiving, client)
+			nullptr
 			});
+
+		size_t last = connections.size() - 1;
+
+		connectionThreads.push_back({
+			&connections[last]
+			});
+		connectionThreads[last].recvThread = std::thread(receiving, connections[last].client);
+		
+		connections[last].holdingHands = &connectionThreads[last];
+		
+		gameBoard.unlock();
+
 		joined(newClientId);
 	}
 
 	// blocking until all threads have joined (which will never happen naturally due to the infinite loop)
 	for (size_t i = 0; i < connections.size(); i++)
 	{
-		if (connections[i].recvThread.joinable())
-			connections[i].recvThread.join();
+		if (connectionThreads[i].recvThread.joinable())
+			connectionThreads[i].recvThread.join();
 	}
 }

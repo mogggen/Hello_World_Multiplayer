@@ -166,67 +166,57 @@ void receiving(const SOCKET& s)
 			//kicked(player);
 			break;
 		}
-
-		MsgHead* msgHead = (MsgHead*)buf;
+		std::printf("message recevied\n");
 
 		JoinMsg* joinMsg = (JoinMsg*)buf;
 		LeaveMsg* leaveMsg = (LeaveMsg*)buf;
 		MoveEvent* moveEvent = (MoveEvent*)buf;
 
-		while (msgHead <= (MsgHead*)(buf + sizeof(buf) / sizeof(*buf)))
+		switch (((ChangeMsg*)&buf)->head.type)
 		{
-			switch (msgHead->type)
+		case Join:
+			for (size_t i = 0; i < connections.size(); i++)
 			{
-			case Join:
-				for (size_t i = 0; i < connections.size(); i++)
+				if (joinMsg->head.id == connections[i].id)
 				{
-					if (msgHead->id == connections[i].id)
-					{
-						connections[i].description = joinMsg->desc;
-						connections[i].form = joinMsg->form;
-					}
+					connections[i].description = joinMsg->desc;
+					connections[i].form = joinMsg->form;
 				}
-
-				joined(joinMsg->head.id);
-				break;
-
-			case Leave:
-				for (size_t i = 0; i < connections.size(); i++)
-				{
-					if (msgHead->id == connections[i].id)
-					{
-						delete connections[i].holdingHands;
-						delete connectionThreads[i].holdingHands;
-
-						connections.erase(connections.begin() + i);
-						connectionThreads.erase(connectionThreads.begin() + i);
-					}
-				}
-				
-				kicked(leaveMsg->head.id);
-				break;
-
-			case Event:
-				for (size_t i = 0; i < connections.size(); i++)
-				{
-					if (moveEvent->event.head.id == connections[i].id)
-					{
-						moved(connections[i].id, moveEvent->pos);
-					}
-				}
-				break;
-
-			default:
-				std::cout << "switch defaulted" << std::endl;
-				std::cin.get();
-				break;
 			}
 
-			msgHead = (MsgHead*)(msgHead + msgHead->length);
+			joined(joinMsg->head.id);
+			break;
 
-			joinMsg = (JoinMsg*)msgHead;
-			leaveMsg = (LeaveMsg*)msgHead;
-			moveEvent = (MoveEvent*)msgHead;
+		case Leave:
+			for (size_t i = 0; i < connections.size(); i++)
+			{
+				if (leaveMsg->head.id == connections[i].id)
+				{
+					delete connections[i].holdingHands;
+					delete connectionThreads[i].holdingHands;
+
+					connections.erase(connections.begin() + i);
+					connectionThreads.erase(connectionThreads.begin() + i);
+				}
+			}
+				
+			kicked(leaveMsg->head.id);
+			break;
+
+		case Event:
+			for (size_t i = 0; i < connections.size(); i++)
+			{
+				if (moveEvent->event.head.id == connections[i].id)
+				{
+					moved(connections[i].id, moveEvent->pos);
+				}
+			}
+			break;
+
+		default:
+			std::cout << "switch defaulted" << std::endl;
+			std::cin.get();
+			break;
 		}
 
 		//if (isItOkToMove())
@@ -257,7 +247,6 @@ void receiving(const SOCKET& s)
 const Coordinate first_avalible_Coordinate()
 {
 	// stupid bubble sort
-	gameBoard.lock();
 	for (size_t i = 0; i < connections.size(); i++)
 	{
 		for (size_t j = 1; j < connections.size() - i; j++)
@@ -283,6 +272,7 @@ const Coordinate first_avalible_Coordinate()
 	
 	for (Coordinate start = { -200, -200 };;)
 	{
+		if (connections.size() == 0) return start;
 		for (Connection c : connections)
 		{
 			if (start == c.coord)
@@ -302,13 +292,11 @@ const Coordinate first_avalible_Coordinate()
 			}
 			else
 			{
-				gameBoard.unlock();
 				return start;
 			}
 		}
 	}
-	// never happens (unless you have 160801 clients connected)
-	gameBoard.unlock();
+	// never happens (unless you have 160801 clients connected already connected)
 	return Coordinate{ 201, 201 };
 }
 
@@ -323,7 +311,6 @@ int main()
 	for (SOCKET client;;)
 	{
 		client = accept(listening, nullptr, nullptr);
-		
 		gameBoard.lock();
 
 		connections.push_back({

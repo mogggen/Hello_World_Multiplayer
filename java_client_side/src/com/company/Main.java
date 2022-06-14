@@ -10,11 +10,15 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 
 public class Main extends JComponent {
 
     static ArrayList<Byte> byteBuf = new ArrayList<>();
+    static ArrayList<Integer> clientIds;
     static ArrayList<Pixel> info = new ArrayList<>();
     static ServerSocket ss;
     static Socket s;
@@ -38,9 +42,9 @@ public class Main extends JComponent {
         Cone
     };
 
-    public class Coordinate {
-        int x;
-        int y;
+    public static class Coordinate {
+        public int x;
+        public int y;
     };
 
     enum MsgType {
@@ -51,22 +55,22 @@ public class Main extends JComponent {
         TextMessage     //Send text messages to one or all
     };
     //MESSAGE HEAD, Included first in all messages
-    public class MsgHead {
-        int length;     //Total length for whole message
-        int seqNo;      //Sequence number
-        int id;         //Client ID or 0;
-        MsgType type;   //Type of message
+    public static class MsgHead {
+        public int length;     //Total length for whole message
+        public int seqNo;      //Sequence number
+        public int id;         //Client ID or 0;
+        public MsgType type;   //Type of message
     };
     //JOIN MESSAGE (CLIENT->SERVER)
-    public class JoinMsg {
-        MsgHead head;
-        ObjectDesc desc;
-        ObjectForm form;
-        char name[];   //null terminated!,or empty
+    public static class JoinMsg {
+        public MsgHead head;
+        public ObjectDesc desc;
+        public ObjectForm form;
+        public char name[];   //null terminated!,or empty
     };
     //LEAVE MESSAGE (CLIENT->SERVER)
-    public class LeaveMsg {
-        MsgHead head;
+    public static class LeaveMsg {
+        public MsgHead head;
     };
     //CHANGE MESSAGE (SERVER->CLIENT)
     enum ChangeType {
@@ -75,44 +79,47 @@ public class Main extends JComponent {
         NewPlayerPosition
     };
     //Included first in all Change messages
-    public class ChangeMsg {
-        MsgHead head;
-        ChangeType type;
+    public static class ChangeMsg {
+        public MsgHead head;
+        public ChangeType type;
     };
 
-    public class NewPlayerMsg {
-        ChangeMsg msg;          //Change message header with new client id
-        ObjectDesc desc;
-        ObjectForm form;
-        char name[];  //nullterminated!,or empty
+    public static class NewPlayerMsg {
+        public ChangeMsg msg;          //Change message header with new client id
+        public ObjectDesc desc;
+        public ObjectForm form;
+        public char name[];  //nullterminated!,or empty
     };
-    public class PlayerLeaveMsg {
-        ChangeMsg msg;          //Change message header with new client id
+    public static class PlayerLeaveMsg {
+        public ChangeMsg msg;          //Change message header with new client id
     };
-    public class NewPlayerPositionMsg {
-        ChangeMsg msg;          //Change message header
-        Coordinate pos;         //New object position
-        Coordinate dir;         //New object direction
+    public static class NewPlayerPositionMsg {
+        public ChangeMsg msg;          //Change message header
+        public Coordinate pos;         //New object position
+        public Coordinate dir;         //New object direction
     };
     //EVENT MESSAGE (CLIENT->SERVER)
     enum EventType { Move };
     //Included first in all Event messages
-    public class EventMsg {
-        MsgHead head;
-        EventType type;
+    public static class EventMsg {
+        public MsgHead head;
+        public EventType type;
     };
     //Variations of EventMsg
-    public class MoveEvent {
-        EventMsg event;
-        Coordinate pos;         //New object position
-        Coordinate dir;         //New object direction
+    public static class MoveEvent {
+        public EventMsg event;
+        public Coordinate pos;         //New object position
+        public Coordinate dir;         //New object direction
     };
     //TEXT MESSAGE
-    public class TextMessageMsg {
-        MsgHead head;
-        char text[];   //NULL-terminated array of chars.
+    public static class TextMessageMsg {
+        public MsgHead head;
+        public char text[];   //NULL-terminated array of chars.
     };
 
+    static int seqNo = 0;
+    static int id = -1;
+    static Coordinate pos = new Coordinate();
     static byte direction = -1;
 
     enum dir
@@ -176,20 +183,22 @@ public class Main extends JComponent {
 
     static class Pixel
     {
-        int x, y, c;
+        Coordinate coord;
+        int c;
         public Pixel(int x, int y, int c)
         {
-            this.x = x;
-            this.y = y;
+            assert false;
+            this.coord.x = x;
+            this.coord.y = y;
             this.c = c;
         }
 
         public int getX() {
-            return x;
+            return coord.x;
         }
 
         public int getY() {
-            return y;
+            return coord.y;
         }
 
         public int getC() {
@@ -238,7 +247,60 @@ public class Main extends JComponent {
         s = ss.accept();
         in = s.getInputStream();
         out = s.getOutputStream();
+
+        ArrayList<Byte> joinBuffer = new ArrayList<>();
+
+        //joinMsg.head.length
+        byte[] intToByte = ByteBuffer.allocate(4).putInt(28).array(); // bytes in joinMsg
+        for (byte b : intToByte){
+            joinBuffer.add(b);
+        }
+
+        //joinMsg.head.seqNo
+        intToByte = ByteBuffer.allocate(4).putInt(++seqNo).array();
+        for (byte b : intToByte){
+            joinBuffer.add(b);
+        }
+
+        //joinMsg.head.id
+        intToByte = ByteBuffer.allocate(4).putInt(id).array();
+        for (byte b : intToByte){
+            joinBuffer.add(b);
+        }
+
+        //joinMsg.head.MsgType
+        intToByte = ByteBuffer.allocate(4).putInt(0).array(); // MsgType.Join
+        for (byte b : intToByte){
+            joinBuffer.add(b);
+        }
+
+        //joinMsg.ObjectDesc
+        intToByte = ByteBuffer.allocate(4).putInt(0).array(); // ObjectDesc.Human
+        for (byte b : intToByte){
+            joinBuffer.add(b);
+        }
+
+        //joinMsg.ObjectForm
+        intToByte = ByteBuffer.allocate(4).putInt(3).array(); // ObjectForm.Cone
+        for (byte b : intToByte){
+            joinBuffer.add(b);
+        }
+
+        //joinMsg.name
+        intToByte = ByteBuffer.allocate(4).putInt(45).array(); // ascii: '-'
+        for (byte b : intToByte){
+            joinBuffer.add(b);
+        }
+
+        byte[] first = new byte[1024];
+        for (int v = 0; v < joinBuffer.size(); v++){
+            first[v] = joinBuffer.get(v);
+        }
+        first[joinBuffer.size()] = '\0';
+
+        out.write(first);
         System.out.println("client connected");
+        System.out.println("forwarded joinMsg...");
     }
 
     //Reads Bytes from the input stream
@@ -251,49 +313,125 @@ public class Main extends JComponent {
             System.out.println("Error: unable to receive");
             System.exit(1);
         }
-//        //Reformat
-//        for (int k = 0; k < byteBuf.size(); k += 3) {
-//            //info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k + 1)), Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
-//            System.out.print((byteBuf.get(k)+(byte)48) + (byteBuf.get(k+1)+(byte)48) + (byteBuf.get(k+2)+(byte)48));
-//            info.clear();
-//            info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
-//        }
-//        window.canvas.SetParamArr(info);
-//        window.frame.repaint();
-//
-//        byteBuf.clear();
+
+        ByteBuffer bb = ByteBuffer.wrap(buf);
+
+        NewPlayerMsg newPlayerMsg = new NewPlayerMsg();
+        newPlayerMsg.msg.head.length = bb.getInt();
+        newPlayerMsg.msg.head.seqNo = bb.getInt();
+        newPlayerMsg.msg.head.id = bb.getInt();
+        newPlayerMsg.msg.head.type = MsgType.Change;
+        newPlayerMsg.desc = ObjectDesc.values()[bb.getInt()];
+        newPlayerMsg.form = ObjectForm.values()[bb.getInt()];
+        newPlayerMsg.name = new char[0];
+
+        PlayerLeaveMsg playerLeaveMsg = new PlayerLeaveMsg();
+        playerLeaveMsg.msg.head.length = bb.getInt();
+        playerLeaveMsg.msg.head.seqNo = bb.getInt();
+        playerLeaveMsg.msg.head.id = bb.getInt();
+        playerLeaveMsg.msg.head.type = MsgType.Change;
+
+        NewPlayerPositionMsg newPlayerPositionMsg = new NewPlayerPositionMsg();
+        newPlayerPositionMsg.msg.head.length = bb.getInt();
+        newPlayerPositionMsg.msg.head.seqNo = bb.getInt();
+        newPlayerPositionMsg.msg.head.id = bb.getInt();
+        newPlayerPositionMsg.msg.head.type = MsgType.Change;
+        newPlayerPositionMsg.pos.x = bb.getInt();
+        newPlayerPositionMsg.pos.y = bb.getInt();
+        newPlayerPositionMsg.dir.x = 0;
+        newPlayerPositionMsg.dir.y = 0;
+
+        switch (ChangeType.values()[bb.getInt()]) {
+            case NewPlayer -> {
+                System.out.print('[' + newPlayerMsg.msg.head.seqNo + "]:\tplayer joined\tId=" + newPlayerMsg.msg.head.id);
+                //for each (client c in clientList)
+                if (id == -1) {
+                    //newPlayerMsg.msg.head.length;
+                    id = newPlayerMsg.msg.head.id;
+                    pos = newPlayerPositionMsg.pos;
+                }
+            }
+            case PlayerLeave -> {
+                System.out.println('[' + playerLeaveMsg.msg.head.seqNo + "]:\tplayer left server\tId=" + playerLeaveMsg.msg.head.id);
+                if (playerLeaveMsg.msg.head.id == id) {
+                    System.out.println("kicked from server");
+                    System.exit(1);
+                }
+            }
+            case NewPlayerPosition -> {
+                System.out.println('[' + newPlayerPositionMsg.msg.head.seqNo + "]:\tpos:(" +
+                        newPlayerPositionMsg.pos.x + ";" +
+                        newPlayerPositionMsg.pos.y + ")\tid=" + newPlayerPositionMsg.msg.head.id);
+                if (newPlayerPositionMsg.msg.head.id == id) {
+                    pos.x = newPlayerPositionMsg.pos.x;
+                    pos.y = newPlayerPositionMsg.pos.y;
+                }
+            }
+            default -> {
+                System.out.println("pause debugger...\n");
+                System.in.read();
+            }
+        }
+
+        //Reformat
+        for (int k = 0; k < byteBuf.size(); k += 3) {
+            info.add(new Pixel(
+                    Byte.toUnsignedInt(byteBuf.get(k)),
+                    Byte.toUnsignedInt(byteBuf.get(k + 1)),
+                    Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
+            System.out.print(
+                    (byteBuf.get(k)+(byte)48) +
+                    (byteBuf.get(k+1)+(byte)48) +
+                    (byteBuf.get(k+2)+(byte)48));
+            info.clear();
+            info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
+        }
+        window.canvas.SetParamArr(info);
+        window.frame.repaint();
+
+        byteBuf.clear();
     }
 
     public static void speak() throws IOException
     {
         //new position
-        byte x = 0, y = 0; // send five bytes or use the 2 left-most bits in the color byte
         switch (direction)
         {
             case -1:
                 break;
             case 0:
-                y -= 1;
+                pos.y -= 1;
                 break;
             case 1:
-                y += 1;
+                pos.y += 1;
                 break;
             case 2:
-                x -= 1;
+                pos.x -= 1;
                 break;
             case 3:
-                x += 1;
+                pos.x += 1;
                 break;
             default:
-                System.out.println("Error in speak switch");
+                System.out.println("Error in speak() switch");
                 return;
         }
-        byte[] pl = { x, y, (byte)7};
-        out.write(pl);
+        ArrayList<Byte> pl = new ArrayList<>();
+        Collections.addAll(Arrays.asList(ByteBuffer.allocate(4).putInt(pos.x).array()));
+        Collections.addAll(Arrays.asList(ByteBuffer.allocate(4).putInt(pos.y).array()));
+
+        pl.add((byte)7);
+        byte[] first = new byte[1024];
+        for (int v = 0; v < pl.size(); v++){
+            first[v] = pl.get(v);
+        }
+        first[pl.size()] = '\0';
+        out.write(first);
     }
 
 
     public static void main(String[] args) throws IOException {
+        pos.x = -200;
+        pos.y = -200;
         GUI window = new GUI();
         runSetup(4999);
         while(true) {

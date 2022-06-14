@@ -61,7 +61,7 @@ struct NewPlayerMsg {
     ChangeMsg msg;          //Change message header with new client id
     ObjectDesc desc;
     ObjectForm form;
-    char name[];  //nullterminated!,or empty
+    char name[1];  //nullterminated!,or empty
 };
 struct PlayerLeaveMsg {
     ChangeMsg msg;          //Change message header with new client id

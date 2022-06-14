@@ -22,6 +22,7 @@ void leave(SOCKET sock, const int& clientId)
 void recv_from_java()
 {
 	char buf[1024];
+	ZeroMemory(buf, 1024);
 	while (true)
 	{
 		int count = recv(java_sock, buf, sizeof(buf), 0);
@@ -30,6 +31,7 @@ void recv_from_java()
 			leave(linux_sock, 0);
 		}
 		send(linux_sock, buf, sizeof(buf), 0);
+		printf("traffic: java -> linux: %d bytes\n", count);
 	}
 
 	// closesocket(java_sock);
@@ -47,6 +49,7 @@ void recv_from_server()
 			strcpy(buf, std::string("disconnected from server!").c_str());
 			send(java_sock, buf, sizeof(buf), 0);
 		}
+		printf("traffic: java <- linux: %d bytes\n", count);
 		send(java_sock, buf, sizeof(buf), 0);
 	}
 	

@@ -17,9 +17,22 @@ import java.util.Collections;
 
 public class Main extends JComponent {
 
-    static ArrayList<Byte> byteBuf = new ArrayList<>();
-    static ArrayList<Integer> clientIds;
-    static ArrayList<Pixel> info = new ArrayList<>();
+    // Coordinate system: -100 - 100
+    // Resolution: 303x303
+
+    public static class Client
+    {
+        int clientId;
+        Coordinate position;
+        ObjectDesc objectDesc; // used for color
+        ObjectForm objectForm;
+    }
+
+    static ArrayList<Byte> posBuf = new ArrayList<>();
+    static ArrayList<Byte> colorBuf = new ArrayList<>();
+    static ArrayList<Client> info = new ArrayList<>();
+
+
     static ServerSocket ss;
     static Socket s;
     static InputStream in;
@@ -119,7 +132,7 @@ public class Main extends JComponent {
 
     static int seqNo = 0;
     static int id = -1;
-    static Coordinate pos = new Coordinate();
+    //static Coordinate pos = new Coordinate();
     static byte direction = -1;
 
     enum dir
@@ -128,6 +141,31 @@ public class Main extends JComponent {
         down,
         left,
         right
+    }
+
+    public static Client getClient(int clientId)
+    {
+        for (Client c: info) {
+            if (c.clientId == clientId){
+                return c;
+            }
+        }
+        return null;
+    }
+
+    public static void drawFigure(int clientId)
+    {
+        // check for attendance of the client
+        Client curr = getClient(clientId);
+
+        if (curr == null) {
+            System.out.println("client not found, no corresponding figure was drawn");
+            return;
+        }
+
+        switch (curr.objectForm){
+
+        }
     }
 
     public static class GUI
@@ -142,8 +180,8 @@ public class Main extends JComponent {
         // class constructor
         public GUI()
         {
-            canvas.setBounds(0, 0, 201, 201);
-            frame.setSize(201, 201);
+            canvas.setBounds(0, 0, 303, 303);
+            frame.setSize(303, 303);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setTitle("GUI Server");
             frame.add(canvas);
@@ -181,30 +219,6 @@ public class Main extends JComponent {
         }
     }
 
-    static class Pixel
-    {
-        Coordinate coord;
-        int c;
-        public Pixel(int x, int y, int c)
-        {
-            assert false;
-            this.coord.x = x;
-            this.coord.y = y;
-            this.c = c;
-        }
-
-        public int getX() {
-            return coord.x;
-        }
-
-        public int getY() {
-            return coord.y;
-        }
-
-        public int getC() {
-            return c;
-        }
-    }
     static int Fit(int input, int inputStart, int inputEnd)
     {
         return (int)(((float) 255) / (inputEnd - inputStart) * (input - inputStart));
@@ -212,33 +226,46 @@ public class Main extends JComponent {
     //handles the drawing of the input value
     static class PixelCanvas extends JComponent
     {
-        ArrayList<Pixel> arr;
-        void SetParamArr(ArrayList<Pixel> arr)
+        ArrayList<Byte> arr;
+        ArrayList<Byte> color;
+        void SetParamArr(ArrayList<Byte> arr, ArrayList<Byte> color)
         {
-            //System.out.println(this.arr);
             this.arr = arr;
+            this.color = color;
         }
 
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
-            if (arr != null) {
-                for (Pixel pixel : arr) {
-                    if (pixel.c == 0) {
+            if (arr != null && color != null) {
+                for (int i = 0; i < arr.size(); i++){
+                    if (color.get(i) == 0){
                         return;
                     }
-                    int up = Fit(pixel.getC(), 1, 16);
-                    int down = Fit(pixel.getC(), 16, 1);
-                    g.setColor(new Color(down,up,down));
-                    g.fillRect(pixel.getX(), pixel.getY(), 10, 10);
+                    int up = Fit(color.get(i), 1, 16);
+                    int down = Fit(color.get(i), 16, 1);
+                    g.setColor(new Color(down, up, down));
+                    g.fillRect(arr.get(i), arr.get(i+1), 1, 1);
                 }
             }
         }
 
         @Override
         public Dimension getPreferredSize() {
-            return new Dimension(201, 201);
+            return new Dimension(303, 303);
         }
+    }
+
+    public static byte[] intToBytes(int i)
+    {
+        byte[] result = new byte[4];
+
+        result[0] = (byte)(i >> 24);
+        result[1] = (byte)(i >> 16);
+        result[2] = (byte)(i >> 8);
+        result[3] = (byte)i;
+
+        return result;
     }
 
     public static void runSetup(int port) throws IOException {
@@ -251,54 +278,54 @@ public class Main extends JComponent {
         ArrayList<Byte> joinBuffer = new ArrayList<>();
 
         //joinMsg.head.length
-        byte[] intToByte = ByteBuffer.allocate(4).putInt(28).array(); // bytes in joinMsg
-        for (byte b : intToByte){
+        byte[] buf = intToBytes(28); // bytes in joinMsg
+        for (byte b : buf){
             joinBuffer.add(b);
         }
 
         //joinMsg.head.seqNo
-        intToByte = ByteBuffer.allocate(4).putInt(++seqNo).array();
-        for (byte b : intToByte){
+        buf = intToBytes(++seqNo);
+        for (byte b : buf){
             joinBuffer.add(b);
         }
 
         //joinMsg.head.id
-        intToByte = ByteBuffer.allocate(4).putInt(id).array();
-        for (byte b : intToByte){
+        buf = intToBytes(id);
+        for (byte b : buf){
             joinBuffer.add(b);
         }
 
         //joinMsg.head.MsgType
-        intToByte = ByteBuffer.allocate(4).putInt(0).array(); // MsgType.Join
-        for (byte b : intToByte){
+        buf = intToBytes(0); // MsgType.Join
+        for (byte b : buf){
             joinBuffer.add(b);
         }
 
         //joinMsg.ObjectDesc
-        intToByte = ByteBuffer.allocate(4).putInt(0).array(); // ObjectDesc.Human
-        for (byte b : intToByte){
+        buf = intToBytes(0); // ObjectDesc.Human
+        for (byte b : buf){
             joinBuffer.add(b);
         }
 
         //joinMsg.ObjectForm
-        intToByte = ByteBuffer.allocate(4).putInt(3).array(); // ObjectForm.Cone
-        for (byte b : intToByte){
+        buf = intToBytes(3); // ObjectForm.Cone
+        for (byte b : buf){
             joinBuffer.add(b);
         }
 
         //joinMsg.name
-        intToByte = ByteBuffer.allocate(4).putInt(45).array(); // ascii: '-'
-        for (byte b : intToByte){
+        buf = intToBytes(45); // ascii: '-'
+        for (byte b : buf){
             joinBuffer.add(b);
         }
 
-        byte[] first = new byte[1024];
+        byte[] firstMessage = new byte[1024];
         for (int v = 0; v < joinBuffer.size(); v++){
-            first[v] = joinBuffer.get(v);
+            firstMessage[v] = joinBuffer.get(v);
         }
-        first[joinBuffer.size()] = '\0';
+        firstMessage[joinBuffer.size()] = '\0';
 
-        out.write(first);
+        out.write(firstMessage);
         System.out.println("client connected");
         System.out.println("forwarded joinMsg...");
     }
@@ -317,54 +344,86 @@ public class Main extends JComponent {
         ByteBuffer bb = ByteBuffer.wrap(buf);
 
         NewPlayerMsg newPlayerMsg = new NewPlayerMsg();
+        newPlayerMsg.msg = new ChangeMsg();
+        newPlayerMsg.msg.head = new MsgHead();
+
         newPlayerMsg.msg.head.length = bb.getInt();
         newPlayerMsg.msg.head.seqNo = bb.getInt();
         newPlayerMsg.msg.head.id = bb.getInt();
         newPlayerMsg.msg.head.type = MsgType.Change;
+        newPlayerMsg.msg.type = ChangeType.values()[bb.getInt()];
+
         newPlayerMsg.desc = ObjectDesc.values()[bb.getInt()];
         newPlayerMsg.form = ObjectForm.values()[bb.getInt()];
         newPlayerMsg.name = new char[0];
 
+        bb = ByteBuffer.wrap(buf);
         PlayerLeaveMsg playerLeaveMsg = new PlayerLeaveMsg();
+        playerLeaveMsg.msg = new ChangeMsg();
+        playerLeaveMsg.msg.head = new MsgHead();
+
         playerLeaveMsg.msg.head.length = bb.getInt();
         playerLeaveMsg.msg.head.seqNo = bb.getInt();
         playerLeaveMsg.msg.head.id = bb.getInt();
         playerLeaveMsg.msg.head.type = MsgType.Change;
+        playerLeaveMsg.msg.type = ChangeType.values()[bb.getInt()];
 
+        bb = ByteBuffer.wrap(buf);
         NewPlayerPositionMsg newPlayerPositionMsg = new NewPlayerPositionMsg();
+        newPlayerPositionMsg.msg = new ChangeMsg();
+        newPlayerPositionMsg.msg.head = new MsgHead();
+
         newPlayerPositionMsg.msg.head.length = bb.getInt();
         newPlayerPositionMsg.msg.head.seqNo = bb.getInt();
         newPlayerPositionMsg.msg.head.id = bb.getInt();
         newPlayerPositionMsg.msg.head.type = MsgType.Change;
+        newPlayerPositionMsg.msg.type = ChangeType.values()[bb.getInt()];
+
         newPlayerPositionMsg.pos.x = bb.getInt();
         newPlayerPositionMsg.pos.y = bb.getInt();
-        newPlayerPositionMsg.dir.x = 0;
-        newPlayerPositionMsg.dir.y = 0;
+        newPlayerPositionMsg.dir.x = bb.getInt();
+        newPlayerPositionMsg.dir.y = bb.getInt();
 
-        switch (ChangeType.values()[bb.getInt()]) {
+        switch (newPlayerMsg.msg.type) {
             case NewPlayer -> {
                 System.out.print('[' + newPlayerMsg.msg.head.seqNo + "]:\tplayer joined\tId=" + newPlayerMsg.msg.head.id);
+                Client cli = new Client();
                 //for each (client c in clientList)
-                if (id == -1) {
+                if (id == -1)
+                {
                     //newPlayerMsg.msg.head.length;
                     id = newPlayerMsg.msg.head.id;
-                    pos = newPlayerPositionMsg.pos;
+                    //pos = newPlayerPositionMsg.pos; // 'pos' not necessary as variable
                 }
+                cli.clientId = id;
+                cli.objectForm = newPlayerMsg.form;
+                info.add(cli);
             }
             case PlayerLeave -> {
-                System.out.println('[' + playerLeaveMsg.msg.head.seqNo + "]:\tplayer left server\tId=" + playerLeaveMsg.msg.head.id);
                 if (playerLeaveMsg.msg.head.id == id) {
-                    System.out.println("kicked from server");
+                    System.out.println("you lost connection to the server");
                     System.exit(1);
+                }
+                else
+                {
+                    for (Client c : info){
+                        if (c.clientId == playerLeaveMsg.msg.head.id)
+                        {
+                            System.out.println(playerLeaveMsg.msg.head.id + " lost connection to the server");
+                            info.remove(c);
+                        }
+                    }
                 }
             }
             case NewPlayerPosition -> {
                 System.out.println('[' + newPlayerPositionMsg.msg.head.seqNo + "]:\tpos:(" +
                         newPlayerPositionMsg.pos.x + ";" +
                         newPlayerPositionMsg.pos.y + ")\tid=" + newPlayerPositionMsg.msg.head.id);
-                if (newPlayerPositionMsg.msg.head.id == id) {
-                    pos.x = newPlayerPositionMsg.pos.x;
-                    pos.y = newPlayerPositionMsg.pos.y;
+                for (Client c : info){
+
+                    if (c.clientId == id) {
+                        c.position = newPlayerPositionMsg.pos;
+                    }
                 }
             }
             default -> {
@@ -373,23 +432,54 @@ public class Main extends JComponent {
             }
         }
 
-        //Reformat
-        for (int k = 0; k < byteBuf.size(); k += 3) {
-            info.add(new Pixel(
-                    Byte.toUnsignedInt(byteBuf.get(k)),
-                    Byte.toUnsignedInt(byteBuf.get(k + 1)),
-                    Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
-            System.out.print(
-                    (byteBuf.get(k)+(byte)48) +
-                    (byteBuf.get(k+1)+(byte)48) +
-                    (byteBuf.get(k+2)+(byte)48));
-            info.clear();
-            info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
-        }
-        window.canvas.SetParamArr(info);
-        window.frame.repaint();
+        // CLient.coord, Fit(objectDesc) -> 3 ints
+        //find the client that needs to be redrawn otherwise draw the newly joined client
 
-        byteBuf.clear();
+        posBuf.clear();
+        colorBuf.clear();
+        for (int i = 0; i < info.size(); i++) {
+            Coordinate center = info.get(i).position;
+            int descColor = Fit(info.get(i).objectDesc.ordinal(), 16, 1);
+            switch (info.get(i).objectForm) {
+                case Cone, Pyramid -> {
+                    posBuf.add((byte) (center.x));
+                    posBuf.add((byte) (center.y + 1));
+                    colorBuf.add((byte)descColor);
+
+                    posBuf.add((byte) (center.x - 1));
+                    posBuf.add((byte) (center.y));
+                    colorBuf.add((byte)descColor);
+
+                    posBuf.add((byte) (center.x));
+                    posBuf.add((byte) (center.y));
+                    colorBuf.add((byte)descColor);
+
+                    posBuf.add((byte) (center.x + 1));
+                    posBuf.add((byte) (center.y));
+                    colorBuf.add((byte)descColor);
+
+                    posBuf.add((byte) (center.x));
+                    posBuf.add((byte) (center.y - 1));
+                    colorBuf.add((byte)descColor); // romb
+                }
+            }
+        }
+
+        //Reformat
+//        for (int k = 0; k < byteBuf.size(); k += 3) {
+//            info.add(
+//                    Byte.toUnsignedInt(byteBuf.get(k)),
+//                    Byte.toUnsignedInt(byteBuf.get(k + 1)),
+//                    Byte.toUnsignedInt(byteBuf.get(k + 2)))); // always a multiple of three
+//            System.out.print(
+//                    (byteBuf.get(k)+(byte)48) +
+//                    (byteBuf.get(k+1)+(byte)48) +
+//                    (byteBuf.get(k+2)+(byte)48));
+//            info.clear();
+//            info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
+//        }
+        window.canvas.SetParamArr(posBuf, colorBuf);
+        window.frame.repaint();
     }
 
     public static void speak() throws IOException
@@ -400,24 +490,31 @@ public class Main extends JComponent {
             case -1:
                 break;
             case 0:
-                pos.y -= 1;
+                getClient(id).position.y -= 1;
                 break;
             case 1:
-                pos.y += 1;
+                getClient(id).position.y += 1;
                 break;
             case 2:
-                pos.x -= 1;
+                getClient(id).position.x -= 1;
                 break;
             case 3:
-                pos.x += 1;
+                getClient(id).position.x += 1;
                 break;
             default:
                 System.out.println("Error in speak() switch");
                 return;
         }
         ArrayList<Byte> pl = new ArrayList<>();
-        Collections.addAll(Arrays.asList(ByteBuffer.allocate(4).putInt(pos.x).array()));
-        Collections.addAll(Arrays.asList(ByteBuffer.allocate(4).putInt(pos.y).array()));
+        pl.add(intToBytes(getClient(id).position.x)[0]);
+        pl.add(intToBytes(getClient(id).position.x)[1]);
+        pl.add(intToBytes(getClient(id).position.x)[2]);
+        pl.add(intToBytes(getClient(id).position.x)[3]);
+
+        pl.add(intToBytes(getClient(id).position.y)[0]);
+        pl.add(intToBytes(getClient(id).position.y)[1]);
+        pl.add(intToBytes(getClient(id).position.y)[2]);
+        pl.add(intToBytes(getClient(id).position.y)[3]);
 
         pl.add((byte)7);
         byte[] first = new byte[1024];
@@ -430,8 +527,6 @@ public class Main extends JComponent {
 
 
     public static void main(String[] args) throws IOException {
-        pos.x = -200;
-        pos.y = -200;
         GUI window = new GUI();
         runSetup(4999);
         while(true) {

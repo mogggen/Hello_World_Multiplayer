@@ -41,6 +41,86 @@ std::vector<Connection> connections;
 std::vector<ConnectionThread> connectionThreads;
 unsigned int seqNum;
 
+void serialize(NewPlayerMsg* newPlayerMsg, char* data)
+{
+	int* q = (int*)data;
+	*q = newPlayerMsg->msg.head.length;	q++;
+	*q = newPlayerMsg->msg.head.seqNo;  q++;
+	*q = newPlayerMsg->msg.head.id;		q++;
+	*q = newPlayerMsg->msg.head.type;	q++;
+	
+	*q = newPlayerMsg->desc;	q++;
+	*q = newPlayerMsg->form;	q++;
+	//*q = newPlayerMsg->name;	q++;
+
+}
+
+void serialize(PlayerLeaveMsg* playerLeaveMsg, char* buf)
+{
+	int* q = (int*)buf;
+	*q = playerLeaveMsg->msg.head.length;	q++;
+	*q = playerLeaveMsg->msg.head.seqNo;	q++;
+	*q = playerLeaveMsg->msg.head.id;		q++;
+	*q = playerLeaveMsg->msg.head.type;		q++;
+}
+
+void serialize(NewPlayerPositionMsg* newPlayerPositionMsg, char* buf)
+{
+	int* q = (int*)buf;
+
+	*q = newPlayerPositionMsg->msg.head.length;	q++;
+	*q = newPlayerPositionMsg->msg.head.seqNo;	q++;
+	*q = newPlayerPositionMsg->msg.head.id;		q++;
+	*q = newPlayerPositionMsg->msg.head.type;	q++;
+
+	*q = newPlayerPositionMsg->pos.x;		q++;
+	*q = newPlayerPositionMsg->pos.y;		q++;
+	
+	*q = newPlayerPositionMsg->dir.x;		q++;
+	*q = newPlayerPositionMsg->dir.y;		q++;
+}
+
+void deserialize(char* buf, JoinMsg* joinMsg)
+{
+	int* q = (int*)buf;
+
+	joinMsg->head.length = *q;	q++;
+	joinMsg->head.seqNo = *q;  q++;
+	joinMsg->head.id = *q;		q++;
+	joinMsg->head.type = (MsgType)*q;		q++;
+	
+	joinMsg->desc = (ObjectDesc)*q;	q++;
+	joinMsg->form = (ObjectForm)*q;	q++;
+	//joinMsg->name = *q;				q++;
+}
+
+void deserialize(char* buf, LeaveMsg* leaveMsg)
+{
+	int* q = (int*)buf;
+
+	leaveMsg->head.length = *q;	q++;
+	leaveMsg->head.seqNo = *q;	q++;
+	leaveMsg->head.id = *q;		q++;
+	leaveMsg->head.type = (MsgType)*q;	q++;
+}
+
+
+void deserialize(char* buf, MoveEvent* moveEvent)
+{
+	int* q = (int*)buf;
+
+	moveEvent->event.head.length = *q;	q++;
+	moveEvent->event.head.seqNo = *q;  q++;
+	moveEvent->event.head.id = *q;		q++;
+	moveEvent->event.head.type = (MsgType)*q;		q++;
+
+	moveEvent->pos.x = *q;	q++;
+	moveEvent->pos.y = *q;	q++;
+	moveEvent->dir.x = *q;	q++;
+	moveEvent->dir.y = *q;	q++;
+}
+
+
 void sendAll(const char* buf, int len)
 {
 	gameBoard.lock();
@@ -70,10 +150,12 @@ void moved(const int& clientid, const Coordinate& newPos)
 		/*Coordinate*/{newPos},
 		/*Coordinate*/{0, 0}
 	};
-	sendAll((char*)&newPlayerPositionMsg, newPlayerPositionMsg.msg.head.length);
+	char* buf = new char[1024];
+	serialize(&newPlayerPositionMsg, buf);
+	sendAll(buf, sizeof(buf));
 }
 
-void joined(const int& clientid)
+void joinedAndMoved(const int& clientid)
 {
 	NewPlayerMsg newPlayerMsg =
 	{
@@ -90,12 +172,31 @@ void joined(const int& clientid)
 		Pyramid,
 		'-'
 	};
-	sendAll((char*)&newPlayerMsg, newPlayerMsg.msg.head.length);
+	char* buf = new char[1024];
+	serialize(&newPlayerMsg, buf);
+	sendAll(buf, sizeof(buf));
+
+	NewPlayerPositionMsg newPlayerPositionMsg =
+	{
+		/*ChangeMsg*/{
+			/*MsgHead*/{
+				sizeof(NewPlayerPositionMsg),
+				seqNum++,
+				clientid,
+				Change
+				},
+		/*ChangeType*/{NewPlayerPosition}
+		},
+		connections[connections.size() - 1].coord,
+		{0, 0}
+	};
+	serialize(&newPlayerPositionMsg, buf);
+	sendAll(buf, sizeof(buf));
 }
 
 void kicked(const int& clientid)
 {
-	PlayerLeaveMsg leaveMsg =
+	PlayerLeaveMsg playerLeaveMsg =
 	{
 		/*ChangeMsg*/{
 			/*MsgHead*/ {
@@ -107,7 +208,9 @@ void kicked(const int& clientid)
 		/*ChangeType*/{PlayerLeave}
 		}
 	};
-	sendAll((char*)&leaveMsg, leaveMsg.msg.head.length);
+	char* buf = new char[1024];
+	serialize(&playerLeaveMsg, buf);
+	sendAll(buf, sizeof(buf));
 }
 
 SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
@@ -146,10 +249,10 @@ SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
 	return listening;
 }
 
-void sending(char buf[], const SOCKET& s)
-{	
-	send(s, buf, sizeof(buf), 0);
-}
+
+
+
+
 
 
 
@@ -168,11 +271,14 @@ void receiving(const SOCKET& s)
 		}
 		std::printf("message recevied\n");
 
-		JoinMsg* joinMsg = (JoinMsg*)buf;
-		LeaveMsg* leaveMsg = (LeaveMsg*)buf;
-		MoveEvent* moveEvent = (MoveEvent*)buf;
+		JoinMsg* joinMsg = new JoinMsg();
+		deserialize(buf, joinMsg);
+		LeaveMsg* leaveMsg = new LeaveMsg();
+		deserialize(buf, leaveMsg);
+		MoveEvent* moveEvent = new MoveEvent();
+		deserialize(buf, moveEvent);
 
-		switch (((ChangeMsg*)&buf)->head.type)
+		switch (joinMsg->head.type)
 		{
 		case Join:
 			for (size_t i = 0; i < connections.size(); i++)
@@ -184,7 +290,7 @@ void receiving(const SOCKET& s)
 				}
 			}
 
-			joined(joinMsg->head.id);
+			joinedAndMoved(joinMsg->head.id);
 			break;
 
 		case Leave:
@@ -192,14 +298,10 @@ void receiving(const SOCKET& s)
 			{
 				if (leaveMsg->head.id == connections[i].id)
 				{
-					delete connections[i].holdingHands;
-					delete connectionThreads[i].holdingHands;
-
 					connections.erase(connections.begin() + i);
 					connectionThreads.erase(connectionThreads.begin() + i);
 				}
 			}
-				
 			kicked(leaveMsg->head.id);
 			break;
 
@@ -270,20 +372,20 @@ const Coordinate first_avalible_Coordinate()
 		}
 	}
 	
-	for (Coordinate start = { -200, -200 };;)
+	for (Coordinate start = { -100, -100 };;)
 	{
 		if (connections.size() == 0) return start;
 		for (Connection c : connections)
 		{
 			if (start == c.coord)
 			{
-				if (start.x > 200) // row is full so move to next one
+				if (start.x > 100) // row is full so move to next one
 				{
-					if (start.y > 200) // server is full
+					if (start.y > 100) // server is full
 					{
 						// nope
 					}
-					start = { -200, start.y++ };
+					start = { -100, start.y++ };
 				}
 				else
 				{
@@ -296,8 +398,8 @@ const Coordinate first_avalible_Coordinate()
 			}
 		}
 	}
-	// never happens (unless you have 160801 clients connected already connected)
-	return Coordinate{ 201, 201 };
+	// never happens (unless you have 10201 clients connected already connected)
+	return Coordinate{ 101, 101 };
 }
 
 int main()
@@ -314,7 +416,7 @@ int main()
 		gameBoard.lock();
 
 		connections.push_back({
-			newClientId++,
+			newClientId,
 			NonHuman,
 			Pyramid,
 			first_avalible_Coordinate(),
@@ -333,7 +435,7 @@ int main()
 		
 		gameBoard.unlock();
 
-		joined(newClientId);
+		joinedAndMoved(newClientId++);
 	}
 
 	// blocking until all threads have joined (which will never happen naturally due to the infinite loop)

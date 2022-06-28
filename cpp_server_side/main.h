@@ -39,7 +39,7 @@ struct JoinMsg {
     MsgHead head;
     ObjectDesc desc;
     ObjectForm form;
-    char name[1];   //null terminated!,or empty
+    //char name[1];   //null terminated!,or empty
 };
 //LEAVE MESSAGE (CLIENT->SERVER)
 struct LeaveMsg {
@@ -61,7 +61,7 @@ struct NewPlayerMsg {
     ChangeMsg msg;          //Change message header with new client id
     ObjectDesc desc;
     ObjectForm form;
-    char name[1];  //nullterminated!,or empty
+    //char name[1];  //nullterminated!,or empty
 };
 struct PlayerLeaveMsg {
     ChangeMsg msg;          //Change message header with new client id
@@ -85,10 +85,10 @@ struct MoveEvent {
     Coordinate dir;         //New object direction
 };
 //TEXT MESSAGE
-struct TextMessageMsg {
-    MsgHead head;
-    char text[1];   //NULL-terminerad array of chars.
-};
+//struct TextMessageMsg {
+//    MsgHead head;
+//    char text[1];   //NULL-terminerad array of chars.
+//};
 
 enum dir
 {

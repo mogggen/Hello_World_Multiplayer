@@ -29,6 +29,7 @@ void recv_from_java()
 		if (count == SOCKET_ERROR)
 		{
 			leave(linux_sock, 0);
+			return;
 		}
 		send(linux_sock, buf, sizeof(buf), 0);
 		printf("traffic: java -> linux: %d bytes\n", count);
@@ -48,6 +49,7 @@ void recv_from_server()
 		{
 			strcpy(buf, std::string("disconnected from server!").c_str());
 			send(java_sock, buf, sizeof(buf), 0);
+			return;
 		}
 		printf("traffic: java <- linux: %d bytes\n", count);
 		send(java_sock, buf, sizeof(buf), 0);
@@ -99,7 +101,7 @@ void main()
 			WSACleanup();
 			return;
 		}
-		printf("Java socket connected\n");
+		//printf("Java socket connected\n");
 	}
 	//system("pause");
 
@@ -138,7 +140,7 @@ void main()
 			WSACleanup();
 			return;
 		}
-		printf("Linux socket connected\n");
+		//printf("Linux socket connected\n");
 	}
 
 	threads[0] = std::thread(recv_from_java);

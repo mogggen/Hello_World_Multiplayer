@@ -79,7 +79,7 @@ public class Main extends JComponent {
         public MsgHead head;
         public ObjectDesc desc;
         public ObjectForm form;
-        public char name[];   //null terminated!,or empty
+        //public char name[];   //null terminated!,or empty
     };
     //LEAVE MESSAGE (CLIENT->SERVER)
     public static class LeaveMsg {
@@ -101,7 +101,7 @@ public class Main extends JComponent {
         public ChangeMsg msg;          //Change message header with new client id
         public ObjectDesc desc;
         public ObjectForm form;
-        public char name[];  //nullterminated!,or empty
+        //public char name[];  //nullterminated!,or empty
     };
     public static class PlayerLeaveMsg {
         public ChangeMsg msg;          //Change message header with new client id
@@ -127,7 +127,7 @@ public class Main extends JComponent {
     //TEXT MESSAGE
     public static class TextMessageMsg {
         public MsgHead head;
-        public char text[];   //NULL-terminated array of chars.
+        //public char text[];   //NULL-terminated array of chars.
     };
 
     static int seqNo = 0;
@@ -278,7 +278,7 @@ public class Main extends JComponent {
         ArrayList<Byte> joinBuffer = new ArrayList<>();
 
         //joinMsg.head.length
-        byte[] buf = intToBytes(28); // bytes in joinMsg
+        byte[] buf = intToBytes(24); // bytes in joinMsg
         for (byte b : buf){
             joinBuffer.add(b);
         }
@@ -319,11 +319,10 @@ public class Main extends JComponent {
             joinBuffer.add(b);
         }
 
-        byte[] firstMessage = new byte[1024];
+        byte[] firstMessage = new byte[joinBuffer.size()];
         for (int v = 0; v < joinBuffer.size(); v++){
             firstMessage[v] = joinBuffer.get(v);
         }
-        firstMessage[joinBuffer.size()] = '\0';
 
         out.write(firstMessage);
         System.out.println("client connected");
@@ -355,7 +354,6 @@ public class Main extends JComponent {
 
         newPlayerMsg.desc = ObjectDesc.values()[bb.getInt()];
         newPlayerMsg.form = ObjectForm.values()[bb.getInt()];
-        newPlayerMsg.name = new char[0];
 
         bb = ByteBuffer.wrap(buf);
         PlayerLeaveMsg playerLeaveMsg = new PlayerLeaveMsg();

@@ -9,6 +9,8 @@
 #include <mutex>
 #include <WS2tcpip.h>
 
+#include <bitset>
+
 #include "main.h"
 #pragma comment(lib, "ws2_32.lib")
 
@@ -41,18 +43,45 @@ std::vector<Connection> connections;
 std::vector<ConnectionThread> connectionThreads;
 unsigned int seqNum;
 
-void serialize(NewPlayerMsg* newPlayerMsg, char* data)
+void serialize(NewPlayerMsg* newPlayerMsg, char* buf)
 {
-	int* q = (int*)data;
+	int* q = (int*)buf;
 	*q = newPlayerMsg->msg.head.length;	q++;
+	{
+		std::bitset<32> x(q[0]);
+		std::cout << x << std::endl;
+	}
 	*q = newPlayerMsg->msg.head.seqNo;  q++;
+	{
+		std::bitset<32> x(q[1]);
+		std::cout << x << std::endl;
+	}
 	*q = newPlayerMsg->msg.head.id;		q++;
+	{
+		std::bitset<32> x(q[2]);
+		std::cout << x << std::endl;
+	}
 	*q = newPlayerMsg->msg.head.type;	q++;
-	
-	*q = newPlayerMsg->desc;	q++;
-	*q = newPlayerMsg->form;	q++;
-	//*q = newPlayerMsg->name;	q++;
+	{
+		std::bitset<32> x(q[3]);
+		std::cout << x << std::endl;
+	}
 
+	*q = newPlayerMsg->desc;	q++;
+	{
+		std::bitset<32> x(q[4]);
+		std::cout << x << std::endl;
+	}
+	*q = newPlayerMsg->form;	q++;
+	{
+		std::bitset<32> x(q[5]);
+		std::cout << x << std::endl;
+	}
+	for (size_t i = 0; i < sizeof(buf); i++)
+	{
+
+	}
+	//*q = newPlayerMsg->name;	q++;
 }
 
 void serialize(PlayerLeaveMsg* playerLeaveMsg, char* buf)
@@ -125,7 +154,7 @@ void sendAll(const char* buf, int len)
 {
 	gameBoard.lock();
 	for (size_t i = 0; i < connections.size(); i++)
-		send(connections[i].client, buf, sizeof(len), 0);
+		send(connections[i].client, buf, len, 0);
 	gameBoard.unlock();
 }
 
@@ -152,7 +181,7 @@ void moved(const int& clientid, const Coordinate& newPos)
 	};
 	char* buf = new char[1024];
 	serialize(&newPlayerPositionMsg, buf);
-	sendAll(buf, sizeof(buf));
+	sendAll(buf, newPlayerPositionMsg.msg.head.length);
 }
 
 void joinedAndMoved(const int& clientid)
@@ -170,11 +199,10 @@ void joinedAndMoved(const int& clientid)
 		},
 		Human,
 		Pyramid,
-		'-'
 	};
 	char* buf = new char[1024];
 	serialize(&newPlayerMsg, buf);
-	sendAll(buf, sizeof(buf));
+	sendAll(buf, newPlayerMsg.msg.head.length);
 
 	NewPlayerPositionMsg newPlayerPositionMsg =
 	{
@@ -191,7 +219,7 @@ void joinedAndMoved(const int& clientid)
 		{0, 0}
 	};
 	serialize(&newPlayerPositionMsg, buf);
-	sendAll(buf, sizeof(buf));
+	sendAll(buf, newPlayerPositionMsg.msg.head.length);
 }
 
 void kicked(const int& clientid)
@@ -210,7 +238,7 @@ void kicked(const int& clientid)
 	};
 	char* buf = new char[1024];
 	serialize(&playerLeaveMsg, buf);
-	sendAll(buf, sizeof(buf));
+	sendAll(buf, playerLeaveMsg.msg.head.length);
 }
 
 SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)

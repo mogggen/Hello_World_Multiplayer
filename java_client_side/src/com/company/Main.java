@@ -252,20 +252,8 @@ public class Main extends JComponent {
 
         @Override
         public Dimension getPreferredSize() {
-            return new Dimension(303, 303);
+            return new Dimension(505, 505);
         }
-    }
-
-    public static byte[] intToBytes(int i)
-    {
-        byte[] result = new byte[4];
-
-        result[0] = (byte)(i >> 24);
-        result[1] = (byte)(i >> 16);
-        result[2] = (byte)(i >> 8);
-        result[3] = (byte)i;
-
-        return result;
     }
 
     public static void runSetup(int port) throws IOException {
@@ -275,56 +263,32 @@ public class Main extends JComponent {
         in = s.getInputStream();
         out = s.getOutputStream();
 
-        ArrayList<Byte> joinBuffer = new ArrayList<>();
+        // send joinMsg and recevive
+
+        byte[] buf = new byte[7]; // bytes in joinMsg
 
         //joinMsg.head.length
-        byte[] buf = intToBytes(24); // bytes in joinMsg
-        for (byte b : buf){
-            joinBuffer.add(b);
-        }
+        buf[0] = 7;
 
         //joinMsg.head.seqNo
-        buf = intToBytes(++seqNo);
-        for (byte b : buf){
-            joinBuffer.add(b);
-        }
+        buf[1] = (byte)++seqNo;
 
         //joinMsg.head.id
-        buf = intToBytes(id);
-        for (byte b : buf){
-            joinBuffer.add(b);
-        }
+        buf[2] = (byte)id;
 
         //joinMsg.head.MsgType
-        buf = intToBytes(0); // MsgType.Join
-        for (byte b : buf){
-            joinBuffer.add(b);
-        }
+        buf[3] = (byte)MsgType.Join.ordinal();
 
         //joinMsg.ObjectDesc
-        buf = intToBytes(0); // ObjectDesc.Human
-        for (byte b : buf){
-            joinBuffer.add(b);
-        }
+        buf[4] = (byte)ObjectDesc.Human.ordinal();
 
         //joinMsg.ObjectForm
-        buf = intToBytes(3); // ObjectForm.Cone
-        for (byte b : buf){
-            joinBuffer.add(b);
-        }
+        buf[5] = (byte) ObjectForm.Cone.ordinal();
 
         //joinMsg.name
-        buf = intToBytes(45); // ascii: '-'
-        for (byte b : buf){
-            joinBuffer.add(b);
-        }
+        buf[6] = (byte)'-'; // ascii: '-'
 
-        byte[] firstMessage = new byte[joinBuffer.size()];
-        for (int v = 0; v < joinBuffer.size(); v++){
-            firstMessage[v] = joinBuffer.get(v);
-        }
-
-        out.write(firstMessage);
+        out.write(buf);
         System.out.println("client connected");
         System.out.println("forwarded joinMsg...");
     }
@@ -332,7 +296,7 @@ public class Main extends JComponent {
     //Reads Bytes from the input stream
     public static void listen(GUI window) throws IOException {
 
-        byte[] buf = new byte[1024];
+        byte[] buf = new byte[10];
         int count = in.read(buf);
         if (count == -1)
         {
@@ -340,97 +304,78 @@ public class Main extends JComponent {
             System.exit(1);
         }
 
-        ByteBuffer bb = ByteBuffer.wrap(buf);
+        seqNo = buf[1];
+        System.out.println("attempting to handle incoming ChangeMsg...");
+        System.out.println("Seqence Number: " + seqNo);
+        if ((byte)ChangeType.NewPlayer.ordinal() == buf[4]){
+            System.out.println("");
+            NewPlayerMsg newPlayerMsg = new NewPlayerMsg();
+            newPlayerMsg.msg = new ChangeMsg();
+            newPlayerMsg.msg.head = new MsgHead();
 
-        NewPlayerMsg newPlayerMsg = new NewPlayerMsg();
-        newPlayerMsg.msg = new ChangeMsg();
-        newPlayerMsg.msg.head = new MsgHead();
+            newPlayerMsg.msg.head.length = buf[0];
+            newPlayerMsg.msg.head.seqNo = buf[1];
+            newPlayerMsg.msg.head.id = buf[2];
+            newPlayerMsg.msg.head.type = MsgType.values()[buf[3]]; // should always be MsgType.Change
+            newPlayerMsg.msg.type = ChangeType.values()[buf[4]]; // should always be ChangeType.NewPlayer
 
-        newPlayerMsg.msg.head.length = bb.getInt();
-        newPlayerMsg.msg.head.seqNo = bb.getInt();
-        newPlayerMsg.msg.head.id = bb.getInt();
-        newPlayerMsg.msg.head.type = MsgType.Change;
-        newPlayerMsg.msg.type = ChangeType.values()[bb.getInt()];
+            newPlayerMsg.desc = ObjectDesc.values()[buf[5]];
+            newPlayerMsg.form = ObjectForm.values()[buf[6]];
 
-        newPlayerMsg.desc = ObjectDesc.values()[bb.getInt()];
-        newPlayerMsg.form = ObjectForm.values()[bb.getInt()];
-
-        bb = ByteBuffer.wrap(buf);
-        PlayerLeaveMsg playerLeaveMsg = new PlayerLeaveMsg();
-        playerLeaveMsg.msg = new ChangeMsg();
-        playerLeaveMsg.msg.head = new MsgHead();
-
-        playerLeaveMsg.msg.head.length = bb.getInt();
-        playerLeaveMsg.msg.head.seqNo = bb.getInt();
-        playerLeaveMsg.msg.head.id = bb.getInt();
-        playerLeaveMsg.msg.head.type = MsgType.Change;
-        playerLeaveMsg.msg.type = ChangeType.values()[bb.getInt()];
-
-        bb = ByteBuffer.wrap(buf);
-        NewPlayerPositionMsg newPlayerPositionMsg = new NewPlayerPositionMsg();
-        newPlayerPositionMsg.msg = new ChangeMsg();
-        newPlayerPositionMsg.msg.head = new MsgHead();
-
-        newPlayerPositionMsg.msg.head.length = bb.getInt();
-        newPlayerPositionMsg.msg.head.seqNo = bb.getInt();
-        newPlayerPositionMsg.msg.head.id = bb.getInt();
-        newPlayerPositionMsg.msg.head.type = MsgType.Change;
-        newPlayerPositionMsg.msg.type = ChangeType.values()[bb.getInt()];
-
-        newPlayerPositionMsg.pos.x = bb.getInt();
-        newPlayerPositionMsg.pos.y = bb.getInt();
-        newPlayerPositionMsg.dir.x = bb.getInt();
-        newPlayerPositionMsg.dir.y = bb.getInt();
-
-        switch (newPlayerMsg.msg.type) {
-            case NewPlayer -> {
-                System.out.print('[' + newPlayerMsg.msg.head.seqNo + "]:\tplayer joined\tId=" + newPlayerMsg.msg.head.id);
-                Client cli = new Client();
-                //for each (client c in clientList)
-                if (id == -1)
-                {
-                    //newPlayerMsg.msg.head.length;
-                    id = newPlayerMsg.msg.head.id;
-                    //pos = newPlayerPositionMsg.pos; // 'pos' not necessary as variable
-                }
-                cli.clientId = id;
-                cli.objectForm = newPlayerMsg.form;
-                info.add(cli);
-            }
-            case PlayerLeave -> {
-                if (playerLeaveMsg.msg.head.id == id) {
-                    System.out.println("you lost connection to the server");
-                    System.exit(1);
-                }
-                else
-                {
-                    for (Client c : info){
-                        if (c.clientId == playerLeaveMsg.msg.head.id)
-                        {
-                            System.out.println(playerLeaveMsg.msg.head.id + " lost connection to the server");
-                            info.remove(c);
-                        }
-                    }
-                }
-            }
-            case NewPlayerPosition -> {
-                System.out.println('[' + newPlayerPositionMsg.msg.head.seqNo + "]:\tpos:(" +
-                        newPlayerPositionMsg.pos.x + ";" +
-                        newPlayerPositionMsg.pos.y + ")\tid=" + newPlayerPositionMsg.msg.head.id);
-                for (Client c : info){
-
-                    if (c.clientId == id) {
-                        c.position = newPlayerPositionMsg.pos;
-                    }
-                }
-            }
-            default -> {
-                System.out.println("pause debugger...\n");
-                System.in.read();
-            }
+            System.out.println("resulting newPlayerMsg:");
+            System.out.println(newPlayerMsg.msg.head.length);
+            System.out.println(newPlayerMsg.msg.head.seqNo);
+            System.out.println(newPlayerMsg.msg.head.id);
+            System.out.println(newPlayerMsg.msg.head.type); // should always be MsgType.Change
+            System.out.println(newPlayerMsg.msg.type); // should always be ChangeType.Change
+            System.out.println(newPlayerMsg.desc);
+            System.out.println(newPlayerMsg.form);
         }
 
-        // CLient.coord, Fit(objectDesc) -> 3 ints
+        if ((byte)ChangeType.PlayerLeave.ordinal() == buf[4]){
+            PlayerLeaveMsg playerLeaveMsg = new PlayerLeaveMsg();
+            playerLeaveMsg.msg = new ChangeMsg();
+            playerLeaveMsg.msg.head = new MsgHead();
+
+            playerLeaveMsg.msg.head.length = buf[0];
+            playerLeaveMsg.msg.head.seqNo = buf[1];
+            playerLeaveMsg.msg.head.id = buf[2];
+            playerLeaveMsg.msg.head.type = MsgType.values()[buf[3]];
+            playerLeaveMsg.msg.type = ChangeType.values()[buf[4]]; // should always be ChangeType.PlayerLeave
+
+            System.out.println("resulting playerLeaveMsg:");
+            System.out.println(playerLeaveMsg.msg.head.length);
+            System.out.println(playerLeaveMsg.msg.head.seqNo);
+            System.out.println(playerLeaveMsg.msg.head.id);
+            System.out.println(playerLeaveMsg.msg.head.type);
+            System.out.println(playerLeaveMsg.msg.type);
+        }
+
+        if ((byte)ChangeType.NewPlayerPosition.ordinal() == buf[4]){
+            NewPlayerPositionMsg newPlayerPositionMsg = new NewPlayerPositionMsg();
+            newPlayerPositionMsg.msg = new ChangeMsg();
+            newPlayerPositionMsg.msg.head = new MsgHead();
+            newPlayerPositionMsg.pos = new Coordinate();
+
+            newPlayerPositionMsg.msg.head.length = buf[0];
+            newPlayerPositionMsg.msg.head.seqNo = buf[1];
+            newPlayerPositionMsg.msg.head.id = buf[2];
+            newPlayerPositionMsg.msg.head.type = MsgType.values()[buf[3]]; // should always be MsgType.Change
+            newPlayerPositionMsg.msg.type = ChangeType.values()[buf[4]]; // should always be ChangeType.NewPlayerPosition
+
+            newPlayerPositionMsg.pos.x = buf[5];
+            newPlayerPositionMsg.pos.y = buf[6];
+
+            System.out.println("resulting newPlayerPositionMsg:");
+            System.out.println(newPlayerPositionMsg.msg.head.length);
+            System.out.println(newPlayerPositionMsg.msg.head.seqNo);
+            System.out.println(newPlayerPositionMsg.msg.head.id);
+            System.out.println(newPlayerPositionMsg.msg.head.type);
+            System.out.println(newPlayerPositionMsg.msg.type);
+            System.out.println(newPlayerPositionMsg.pos.x);
+            System.out.println(newPlayerPositionMsg.pos.y);
+        }
+
         //find the client that needs to be redrawn otherwise draw the newly joined client
 
         posBuf.clear();
@@ -503,24 +448,27 @@ public class Main extends JComponent {
                 System.out.println("Error in speak() switch");
                 return;
         }
-        ArrayList<Byte> pl = new ArrayList<>();
-        pl.add(intToBytes(getClient(id).position.x)[0]);
-        pl.add(intToBytes(getClient(id).position.x)[1]);
-        pl.add(intToBytes(getClient(id).position.x)[2]);
-        pl.add(intToBytes(getClient(id).position.x)[3]);
+        byte[] pl = new byte[7];
+        // send more basic values
+        pl[0] = 1;
+        pl[1] = 2;
+        pl[2] = 3;
+        pl[3] = 4;
+        pl[4] = 5;
+        pl[5] = 6;
+        pl[6] = 7;
 
-        pl.add(intToBytes(getClient(id).position.y)[0]);
-        pl.add(intToBytes(getClient(id).position.y)[1]);
-        pl.add(intToBytes(getClient(id).position.y)[2]);
-        pl.add(intToBytes(getClient(id).position.y)[3]);
+        pl[0] = ((byte)7);
+        pl[1] = ((byte)++seqNo);
+        pl[2] = ((byte)id);
+        pl[3] = ((byte)MsgType.Event.ordinal());
+        pl[4] = ((byte)EventType.Move.ordinal());
+        pl[5] = ((byte)getClient(id).position.x);
+        pl[6] = ((byte)getClient(id).position.y);
 
-        pl.add((byte)7);
-        byte[] first = new byte[1024];
-        for (int v = 0; v < pl.size(); v++){
-            first[v] = pl.get(v);
-        }
-        first[pl.size()] = '\0';
-        out.write(first);
+
+        System.out.println(pl);
+        out.write(pl);
     }
 
 

@@ -282,7 +282,7 @@ SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
 	}
 
 
-	sockaddr_in hint;
+	sockaddr_in hint{};
 	hint.sin_family = AF_INET;
 	hint.sin_port = htons(listening_port);
 	hint.sin_addr.S_un.S_addr = INADDR_ANY;
@@ -301,7 +301,7 @@ SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
 
 void receiving(const SOCKET& s)
 {
-	char buf[7];
+	char buf[1024];
 	while (true)
 	{
 		int count = recv(s, buf, sizeof(buf), 0);
@@ -327,15 +327,15 @@ void receiving(const SOCKET& s)
 		switch (joinMsg->head.type)
 		{
 		case Join:
-			connections.push_back(Connection
-				{
-					newClientId,
-					joinMsg->desc,
-					joinMsg->form,
-					first_avalible_Coordinate(),
+			//connections.push_back(Connection
+			//	{
+			//		newClientId,
+			//		joinMsg->desc,
+			//		joinMsg->form,
+			//		first_avalible_Coordinate(),
 
 
-				});
+			//	});
 			for (size_t i = 0; i < connections.size(); i++)
 			{
 				if (joinMsg->head.id == connections[i].id)
@@ -488,7 +488,7 @@ int main()
 		gameBoard.unlock();
 
 		joinedAndMoved(newClientId);
-		newClientId++
+		newClientId++;
 	}
 
 	// blocking until all threads have joined (which will never happen naturally due to the infinite loop)

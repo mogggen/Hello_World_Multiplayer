@@ -9,29 +9,73 @@
 SOCKET java_sock;
 SOCKET linux_sock;
 
-void leave(SOCKET sock, const int& clientId)
+unsigned int seqNo = 0u;
+
+char* serialize(LeaveMsg* leaveMsg)
+{
+	char* q = new char[4];
+	q[0] = (char)leaveMsg->head.length;
+	q[1] = (char)leaveMsg->head.seqNo;
+	q[2] = (char)leaveMsg->head.id;
+	q[3] = (char)leaveMsg->head.type;
+	return q;
+}
+
+char* serialize(PlayerLeaveMsg* playerLeaveMsg)
+{
+	char* q = new char[5];
+	q[0] = (char)playerLeaveMsg->msg.head.length;
+	q[1] = (char)playerLeaveMsg->msg.head.seqNo;
+	q[2] = (char)playerLeaveMsg->msg.head.id;
+	q[3] = (char)playerLeaveMsg->msg.head.type;
+	q[4] = (char)playerLeaveMsg->msg.type;
+	return q;
+}
+
+void leaveServer(SOCKET sock, const int& clientId)
 {
 	LeaveMsg leaveMsg =
 	{
-		{0, 0, clientId, Leave}
+		{
+			4,
+			seqNo++,
+			clientId,
+			Leave
+		}
 	};
-	leaveMsg.head.length = sizeof(LeaveMsg);
-	send(sock, (char*)&leaveMsg, leaveMsg.head.length, 0);
+	char* buf = serialize(&leaveMsg);
+	send(sock, buf, leaveMsg.head.length, 0);
+}
+
+void leaveClient(SOCKET sock, const int& clientId)
+{
+	PlayerLeaveMsg playerLeaveMsg = 
+	{
+		{
+			{
+				5,
+				seqNo++,
+				clientId,
+				Change
+			},
+			PlayerLeave
+		}
+	};
 }
 
 void recv_from_java()
 {
-	char buf[1024];
-	ZeroMemory(buf, 1024);
-	while (true)
+	char buf[7];
+	ZeroMemory(buf, 7);
+	for(;;)
 	{
 		int count = recv(java_sock, buf, sizeof(buf), 0);
 		if (count == SOCKET_ERROR)
 		{
-			leave(linux_sock, 0);
+			leaveServer(linux_sock, buf[3]);
 			return;
 		}
-		send(linux_sock, buf, sizeof(buf), 0);
+		send(linux_sock, buf, buf[0], 0);
 		printf("traffic: java -> linux: %d bytes\n", count);
 	}
 
@@ -41,18 +85,18 @@ void recv_from_java()
 
 void recv_from_server()
 {
-	char buf[1024];
-	while (true)
+	char buf[7];
+	ZeroMemory(buf, 7);
+	for(;;)
 	{
 		int count = recv(linux_sock, buf, sizeof(buf), 0);
 		if (count == SOCKET_ERROR)
 		{
-			strcpy(buf, std::string("disconnected from server!").c_str());
-			send(java_sock, buf, sizeof(buf), 0);
+			leaveClient(java_sock, buf[3]);
 			return;
 		}
+		send(java_sock, buf, buf[0], 0);
 		printf("traffic: java <- linux: %d bytes\n", count);
-		send(java_sock, buf, sizeof(buf), 0);
 	}
 	
 	// closesocket(linux_sock);

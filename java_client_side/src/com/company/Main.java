@@ -330,7 +330,7 @@ public class Main extends JComponent {
             System.out.println(newPlayerMsg.desc);
             System.out.println(newPlayerMsg.form);
 
-            colorBuf.add()
+            colorBuf.add((byte)ObjectForm.values()[buf[6]].ordinal());
         }
 
         if ((byte)ChangeType.PlayerLeave.ordinal() == buf[4]){
@@ -374,8 +374,8 @@ public class Main extends JComponent {
             System.out.println(newPlayerPositionMsg.pos.x);
             System.out.println(newPlayerPositionMsg.pos.y);
 
-            posBuf.add(newPlayerPositionMsg.pos.x);
-            posBuf.add(newPlayerPositionMsg.pos.y);
+            posBuf.add((byte)newPlayerPositionMsg.pos.x);
+            posBuf.add((byte)newPlayerPositionMsg.pos.y);
         }
 
         //find the client that needs to be redrawn otherwise draw the newly joined client

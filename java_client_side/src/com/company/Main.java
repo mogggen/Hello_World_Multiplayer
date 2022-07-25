@@ -10,10 +10,7 @@ import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 
 public class Main extends JComponent {
 
@@ -33,7 +30,8 @@ public class Main extends JComponent {
         ObjectForm objectForm;
     }
 
-    static ArrayList<Byte> posBuf = new ArrayList<>();
+    static ArrayList<Byte> xCoordBuf = new ArrayList<>();
+    static ArrayList<Byte> yCoordBuf = new ArrayList<>();
     static ArrayList<Byte> colorBuf = new ArrayList<>();
     static ArrayList<Client> info = new ArrayList<>();
 
@@ -158,20 +156,6 @@ public class Main extends JComponent {
         return null;
     }
 
-    public static void drawFigure(int clientId)
-    {
-        // check for attendance of the client
-        Client curr = getClient(clientId);
-
-        if (curr == null) {
-            System.out.println("client not found, no corresponding figure was drawn");
-            return;
-        }
-
-        switch (curr.objectForm){
-
-        }
-    }
 
     public static class GUI
     {
@@ -228,31 +212,41 @@ public class Main extends JComponent {
     {
         return (int)(((float) 255) / (inputEnd - inputStart) * (input - inputStart));
     }
+
+
     //handles the drawing of the input value
     static class PixelCanvas extends JComponent
     {
-        ArrayList<Byte> arr;
-        ArrayList<Byte> color;
-        void SetParamArr(ArrayList<Byte> arr, ArrayList<Byte> color)
+        ArrayList<Byte> xCoordBuf = new ArrayList<>();
+        ArrayList<Byte> yCoordBuf = new ArrayList<>();
+        ArrayList<Byte> colorIndexBuf = new ArrayList<>();
+        int SetParamArr(ArrayList<Byte> xBuf,
+                         ArrayList<Byte> yBuf,
+                         ArrayList<Byte> color)
         {
-            this.arr = arr;
-            this.color = color;
+            int deltaSize = this.xCoordBuf.size();
+            this.xCoordBuf = xBuf;
+            this.yCoordBuf = yBuf;
+            this.colorIndexBuf = color;
+            return 1; //xBuf.size() - deltaSize;
         }
 
         @Override
         protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-            if (arr != null && color != null) {
-                for (int i = 0; i < arr.size(); i++){
-                    if (color.get(i) == 0){
+            super.paintComponent(g); // happens when the buffer.size changes
+            if (xCoordBuf != null && yCoordBuf != null && colorIndexBuf != null) {
+                for (int i = 0; i < xCoordBuf.size(); i++){
+                    if (colorIndexBuf.get(i) == 0){
                         return;
                     }
-                    int up = Fit(color.get(i), 1, 16);
-                    int down = Fit(color.get(i), 16, 1);
+                    int up = Fit(colorIndexBuf.get(i), 1, 16);
+                    int down = Fit(colorIndexBuf.get(i), 16, 1);
                     g.setColor(new Color(down, up, down));
-                    g.fillRect(arr.get(i), arr.get(i+1), 1, 1);
+                    g.fillRect(xCoordBuf.get(i), yCoordBuf.get(i), 1, 1);
                 }
             }
+            g.setColor(new Color(0, 0, 0));
+            g.fillRect((int)0, 0, 10, 10);
         }
 
         @Override
@@ -295,6 +289,7 @@ public class Main extends JComponent {
         System.out.println("forwarded joinMsg...");
     }
 
+
     //Reads Bytes from the input stream
     public static void listen(GUI window) throws IOException {
 
@@ -309,6 +304,10 @@ public class Main extends JComponent {
         seqNo = buf[1];
         Log("[" + ChangeType.values()[buf[4]] + "]: attempting to handle incoming ChangeMsg...");
         if ((byte)ChangeType.NewPlayer.ordinal() == buf[4]){
+            xCoordBuf.add((byte)0);
+            yCoordBuf.add((byte)0);
+            colorBuf.add((byte)5);
+
             NewPlayerMsg newPlayerMsg = new NewPlayerMsg();
             newPlayerMsg.msg = new ChangeMsg();
             newPlayerMsg.msg.head = new MsgHead();
@@ -330,7 +329,7 @@ public class Main extends JComponent {
             System.out.println(newPlayerMsg.desc);
             System.out.println(newPlayerMsg.form);
 
-            colorBuf.add((byte)ObjectForm.values()[buf[6]].ordinal());
+//            colorBuf.add((byte)ObjectForm.values()[buf[6]].ordinal());
         }
 
         if ((byte)ChangeType.PlayerLeave.ordinal() == buf[4]){
@@ -352,6 +351,9 @@ public class Main extends JComponent {
         }
 
         if ((byte)ChangeType.NewPlayerPosition.ordinal() == buf[4]){
+            xCoordBuf.add((byte) 50);
+            yCoordBuf.add((byte)50);
+            colorBuf.add((byte) 5);
             NewPlayerPositionMsg newPlayerPositionMsg = new NewPlayerPositionMsg();
             newPlayerPositionMsg.msg = new ChangeMsg();
             newPlayerPositionMsg.msg.head = new MsgHead();
@@ -374,41 +376,42 @@ public class Main extends JComponent {
             System.out.println(newPlayerPositionMsg.pos.x);
             System.out.println(newPlayerPositionMsg.pos.y);
 
-            posBuf.add((byte)newPlayerPositionMsg.pos.x);
-            posBuf.add((byte)newPlayerPositionMsg.pos.y);
+//            xCoordBuf.add((byte)newPlayerPositionMsg.pos.x);
+//            xCoordBuf.add((byte)newPlayerPositionMsg.pos.y);
         }
 
         //find the client that needs to be redrawn otherwise draw the newly joined client
 
-        posBuf.clear();
-        colorBuf.clear();
-        for (int i = 0; i < info.size(); i++) {
-            Coordinate center = info.get(i).position;
-            int descColor = Fit(info.get(i).objectDesc.ordinal(), 16, 1);
-            switch (info.get(i).objectForm) {
-                case Cone, Pyramid -> {
-                    posBuf.add((byte) (center.x));
-                    posBuf.add((byte) (center.y + 1));
-                    colorBuf.add((byte)descColor);
-
-                    posBuf.add((byte) (center.x - 1));
-                    posBuf.add((byte) (center.y));
-                    colorBuf.add((byte)descColor);
-
-                    posBuf.add((byte) (center.x));
-                    posBuf.add((byte) (center.y));
-                    colorBuf.add((byte)descColor);
-
-                    posBuf.add((byte) (center.x + 1));
-                    posBuf.add((byte) (center.y));
-                    colorBuf.add((byte)descColor);
-
-                    posBuf.add((byte) (center.x));
-                    posBuf.add((byte) (center.y - 1));
-                    colorBuf.add((byte)descColor); // romb
-                }
-            }
-        }
+//        xCoordBuf.clear();
+//        yCoordBuf.clear();
+//        colorBuf.clear();
+//        for (int i = 0; i < info.size(); i++) {
+//            Coordinate center = info.get(i).position;
+//            int descColor = Fit(info.get(i).objectDesc.ordinal(), 16, 1);
+//            switch (info.get(i).objectForm) {
+//                case Cone, Pyramid -> {
+//                    xCoordBuf.add((byte) (center.x));
+//                    yCoordBuf.add((byte) (center.y + 1));
+//                    colorBuf.add((byte)descColor);
+//
+//                    xCoordBuf.add((byte) (center.x - 1));
+//                    yCoordBuf.add((byte) (center.y));
+//                    colorBuf.add((byte)descColor);
+//
+//                    xCoordBuf.add((byte) (center.x));
+//                    yCoordBuf.add((byte) (center.y));
+//                    colorBuf.add((byte)descColor);
+//
+//                    xCoordBuf.add((byte) (center.x + 1));
+//                    yCoordBuf.add((byte) (center.y));
+//                    colorBuf.add((byte)descColor);
+//
+//                    xCoordBuf.add((byte) (center.x));
+//                    yCoordBuf.add((byte) (center.y - 1));
+//                    colorBuf.add((byte)descColor); // romb
+//                }
+//            }
+//        }
 
         //Reformat
 //        for (int k = 0; k < byteBuf.size(); k += 3) {
@@ -423,8 +426,9 @@ public class Main extends JComponent {
 //            info.clear();
 //            info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
 //        }
-        window.canvas.SetParamArr(posBuf, colorBuf);
-        window.frame.repaint();
+        window.canvas.SetParamArr(xCoordBuf, yCoordBuf, colorBuf);
+            window.frame.repaint();
+
     }
 
     public static void speak() throws IOException
@@ -452,21 +456,13 @@ public class Main extends JComponent {
         }
         byte[] pl = new byte[7];
         // send more basic values
-        pl[0] = 1;
-        pl[1] = 2;
-        pl[2] = 3;
-        pl[3] = 4;
-        pl[4] = 5;
-        pl[5] = 6;
-        pl[6] = 7;
-
-        pl[0] = ((byte)7);
-        pl[1] = ((byte)++seqNo);
-        pl[2] = ((byte)id);
-        pl[3] = ((byte)MsgType.Event.ordinal());
-        pl[4] = ((byte)EventType.Move.ordinal());
-        pl[5] = ((byte)getClient(id).position.x);
-        pl[6] = ((byte)getClient(id).position.y);
+        pl[0] = 7;
+        pl[1] = (byte) ++seqNo;
+        pl[2] = (byte)id;
+        pl[3] = (byte)MsgType.Event.ordinal();
+        pl[4] = (byte)EventType.Move.ordinal();
+        pl[5] = (byte)getClient(id).position.x;
+        pl[6] = (byte)getClient(id).position.y;
 
 
         System.out.println(pl);
@@ -485,7 +481,6 @@ public class Main extends JComponent {
                 s.printStackTrace();
                 System.exit(1);
             }
-            System.out.println("received data");
         }
     }
 }

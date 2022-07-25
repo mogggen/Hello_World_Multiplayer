@@ -1,5 +1,5 @@
 //Enums och constants
-int MAXNAMELEN = 32;
+const int MAXNAMELEN = 32;
 
 enum ObjectDesc {
     Human,

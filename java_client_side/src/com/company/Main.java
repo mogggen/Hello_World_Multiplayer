@@ -19,7 +19,7 @@ public class Main extends JComponent {
 
     static void Log(String msg)
     {
-        System.out.println("[" + seqNo + "][" + id + "]: " + msg);
+        System.out.println("[" + seqNo + "][" + id + "]" + msg);
     }
 
     public static class Client
@@ -161,12 +161,6 @@ public class Main extends JComponent {
     {
         JFrame frame = new JFrame();
         PixelCanvas canvas = new PixelCanvas();
-        dir movel = dir.left;
-        dir mover = dir.right;
-        dir moved = dir.down;
-        dir moveu = dir.up;
-
-        // class constructor
         public GUI()
         {
             canvas.setBounds(0, 0, 303, 303);
@@ -187,10 +181,10 @@ public class Main extends JComponent {
                     switch (event.getKeyCode()) {
                         case 27 -> System.exit(0);
 
-                        case 87, 38 -> direction = (byte)moveu.ordinal();
-                        case 83, 40 -> direction = (byte)moved.ordinal();
-                        case 65, 37 -> direction = (byte)movel.ordinal();
-                        case 68, 39 -> direction = (byte)mover.ordinal();
+                        case 87, 38 -> direction = (byte)dir.up.ordinal();
+                        case 83, 40 -> direction = (byte)dir.down.ordinal();
+                        case 65, 37 -> direction = (byte)dir.left.ordinal();
+                        case 68, 39 -> direction = (byte)dir.right.ordinal();
                     }
                     //final Runnable runnable = (Runnable) Toolkit.getDefaultToolkit().getDesktopProperty("win.sound.exclamation"); if (runnable != null) runnable.run();
                     try {
@@ -245,8 +239,10 @@ public class Main extends JComponent {
                     g.fillRect(xCoordBuf.get(i), yCoordBuf.get(i), 1, 1);
                 }
             }
-            g.setColor(new Color(0, 0, 0));
-            g.fillRect((int)0, 0, 10, 10);
+            g.setColor(new Color(0, 200, 170));
+            g.fillRect(70, 0, 100, 100);
+            g.setColor(new Color(100, 0, 170));
+            g.fillRect(70, 100, 10, 10);
         }
 
         @Override
@@ -302,7 +298,7 @@ public class Main extends JComponent {
         }
 
         seqNo = buf[1];
-        Log("[" + ChangeType.values()[buf[4]] + "]: attempting to handle incoming ChangeMsg...");
+        Log("[" + ChangeType.values()[buf[4]] + "]");
         if ((byte)ChangeType.NewPlayer.ordinal() == buf[4]){
             xCoordBuf.add((byte)0);
             yCoordBuf.add((byte)0);
@@ -320,6 +316,14 @@ public class Main extends JComponent {
 
             newPlayerMsg.desc = ObjectDesc.values()[buf[5]];
             newPlayerMsg.form = ObjectForm.values()[buf[6]];
+
+            // pro code
+            seqNo = buf[1];
+            Client c = new Client();
+            c.clientId = buf[2];
+            c.objectDesc = ObjectDesc.values()[buf[5]];
+            c.objectForm = ObjectForm.values()[buf[6]];
+            info.add(c);
 
             System.out.println(newPlayerMsg.msg.head.length);
             System.out.println(newPlayerMsg.msg.head.seqNo);
@@ -367,6 +371,22 @@ public class Main extends JComponent {
 
             newPlayerPositionMsg.pos.x = buf[5];
             newPlayerPositionMsg.pos.y = buf[6];
+
+            for (Client curr : info) {
+                if (buf[2] == curr.clientId) {
+                    curr.position.x = buf[5];
+                    curr.position.y = buf[6];
+                    xCoordBuf.add(buf[5]);
+                    yCoordBuf.add(buf[6]);
+                    colorBuf.add((byte)curr.objectDesc.ordinal());
+                    // shape to print
+                    switch (curr.objectForm.ordinal()){
+//                        case ObjectForm.Cube.ordinal() ->{
+//                            System.in.available();
+//                        }
+                    }
+                }
+            }
 
             System.out.println(newPlayerPositionMsg.msg.head.length);
             System.out.println(newPlayerPositionMsg.msg.head.seqNo);
@@ -427,8 +447,7 @@ public class Main extends JComponent {
 //            info.add(new Pixel(Byte.toUnsignedInt(byteBuf.get(k)), Byte.toUnsignedInt(byteBuf.get(k+1)), Byte.toUnsignedInt(byteBuf.get(k+2))));
 //        }
         window.canvas.SetParamArr(xCoordBuf, yCoordBuf, colorBuf);
-            window.frame.repaint();
-
+        window.frame.repaint();
     }
 
     public static void speak() throws IOException

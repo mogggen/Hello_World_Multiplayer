@@ -391,7 +391,7 @@ void receiving(const SOCKET& s)
 
 		default:
 			std::cout << "switch defaulted" << std::endl;
-			std::cin.get();
+			exit(1);
 			break;
 		}
 

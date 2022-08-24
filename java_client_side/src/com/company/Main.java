@@ -17,9 +17,9 @@ public class Main extends JComponent {
     // Coordinate system: -100 - 100
     // Resolution: 505x505
 
-    static void Log(String msg)
+    static void Log(String msg, int clientId)
     {
-        System.out.println("[" + seqNo + "][" + id + "]" + msg);
+        System.out.println("[" + seqNo + "][" + clientId + "]" + msg + "(" + newPlMsgcount + ", " + newPlPosMsgcount + ", " + plLevMsgcount + ")");
     }
 
     public static class Client
@@ -30,12 +30,12 @@ public class Main extends JComponent {
         ObjectForm objectForm;
     }
 
-    static ArrayList<Byte> xCoordBuf = new ArrayList<>();
-    static ArrayList<Byte> yCoordBuf = new ArrayList<>();
-    static ArrayList<Byte> colorBuf = new ArrayList<>();
     static ArrayList<Client> info = new ArrayList<>();
 
 
+    static int newPlMsgcount = 0;
+    static int newPlPosMsgcount = 0;
+    static int plLevMsgcount = 0;
     static ServerSocket ss;
     static Socket s;
     static InputStream in;
@@ -134,7 +134,7 @@ public class Main extends JComponent {
     };
 
     static int seqNo = 0;
-    static int id = -1;
+    static int id = 0;
     //static Coordinate pos = new Coordinate();
     static byte direction = -1;
 
@@ -228,7 +228,8 @@ public class Main extends JComponent {
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g); // happens when the buffer.size changes
-            if (xCoordBuf != null && yCoordBuf != null && colorIndexBuf != null) {
+            System.out.println("Connections: " + info.size());
+            if (info != null && info.size() > 0) {
                 for (int i = 0; i < xCoordBuf.size(); i++){
                     if (colorIndexBuf.get(i) == 0){
                         return;
@@ -236,13 +237,9 @@ public class Main extends JComponent {
                     int up = Fit(colorIndexBuf.get(i), 1, 16);
                     int down = Fit(colorIndexBuf.get(i), 16, 1);
                     g.setColor(new Color(down, up, down));
-                    g.fillRect(xCoordBuf.get(i), yCoordBuf.get(i), 1, 1);
+                    g.fillRect(xCoordBuf.get(i), yCoordBuf.get(i), 10, 10);
                 }
             }
-            g.setColor(new Color(0, 200, 170));
-            g.fillRect(70, 0, 100, 100);
-            g.setColor(new Color(100, 0, 170));
-            g.fillRect(70, 100, 10, 10);
         }
 
         @Override
@@ -281,7 +278,6 @@ public class Main extends JComponent {
         buf[5] = (byte) ObjectForm.Cone.ordinal();
 
         out.write(buf);
-        System.out.println("client connected");
         System.out.println("forwarded joinMsg...");
     }
 
@@ -297,13 +293,9 @@ public class Main extends JComponent {
             System.exit(1);
         }
 
-        seqNo = buf[1];
-        Log("[" + ChangeType.values()[buf[4]] + "]");
+        //Log("[" + ChangeType.values()[buf[4]] + "]", buf[2]);
         if ((byte)ChangeType.NewPlayer.ordinal() == buf[4]){
-            xCoordBuf.add((byte)0);
-            yCoordBuf.add((byte)0);
-            colorBuf.add((byte)5);
-
+            newPlMsgcount++;
             NewPlayerMsg newPlayerMsg = new NewPlayerMsg();
             newPlayerMsg.msg = new ChangeMsg();
             newPlayerMsg.msg.head = new MsgHead();
@@ -317,26 +309,27 @@ public class Main extends JComponent {
             newPlayerMsg.desc = ObjectDesc.values()[buf[5]];
             newPlayerMsg.form = ObjectForm.values()[buf[6]];
 
-            // pro code
-            seqNo = buf[1];
+            seqNo = newPlayerMsg.msg.head.seqNo;
+            if (id == 0) {
+                id = newPlayerMsg.msg.head.id;
+            }
             Client c = new Client();
-            c.clientId = buf[2];
-            c.objectDesc = ObjectDesc.values()[buf[5]];
-            c.objectForm = ObjectForm.values()[buf[6]];
+            c.clientId = newPlayerMsg.msg.head.id;
+            c.objectDesc = newPlayerMsg.desc;
+            c.objectForm = newPlayerMsg.form;
+            c.position.x = 101; // not set
+            c.position.y = 101; // not set
             info.add(c);
 
-            System.out.println(newPlayerMsg.msg.head.length);
-            System.out.println(newPlayerMsg.msg.head.seqNo);
-            System.out.println(newPlayerMsg.msg.head.id);
-            System.out.println(newPlayerMsg.msg.head.type); // should always be MsgType.Change
-            System.out.println(newPlayerMsg.msg.type); // should always be ChangeType.NewPlayer
-            System.out.println(newPlayerMsg.desc);
-            System.out.println(newPlayerMsg.form);
-
-//            colorBuf.add((byte)ObjectForm.values()[buf[6]].ordinal());
+            if (getClient(c.clientId) != null) {
+                xCoordBuf.add((byte) c.position.x);
+                yCoordBuf.add((byte) c.position.y);
+                colorBuf.add((byte) ObjectForm.values()[buf[6]].ordinal());
+            }
         }
 
         if ((byte)ChangeType.PlayerLeave.ordinal() == buf[4]){
+            plLevMsgcount++;
             PlayerLeaveMsg playerLeaveMsg = new PlayerLeaveMsg();
             playerLeaveMsg.msg = new ChangeMsg();
             playerLeaveMsg.msg.head = new MsgHead();
@@ -347,17 +340,15 @@ public class Main extends JComponent {
             playerLeaveMsg.msg.head.type = MsgType.values()[buf[3]]; // Should always be MsgType.Change
             playerLeaveMsg.msg.type = ChangeType.values()[buf[4]]; // should always be ChangeType.PlayerLeave
 
-            System.out.println(playerLeaveMsg.msg.head.length);
-            System.out.println(playerLeaveMsg.msg.head.seqNo);
-            System.out.println(playerLeaveMsg.msg.head.id);
-            System.out.println(playerLeaveMsg.msg.head.type);
-            System.out.println(playerLeaveMsg.msg.type);
+            for (Client c : info){
+                if (c.clientId == playerLeaveMsg.msg.head.id){
+                    info.remove(c);
+                }
+            }
         }
 
         if ((byte)ChangeType.NewPlayerPosition.ordinal() == buf[4]){
-            xCoordBuf.add((byte) 50);
-            yCoordBuf.add((byte)50);
-            colorBuf.add((byte) 5);
+            newPlPosMsgcount++;
             NewPlayerPositionMsg newPlayerPositionMsg = new NewPlayerPositionMsg();
             newPlayerPositionMsg.msg = new ChangeMsg();
             newPlayerPositionMsg.msg.head = new MsgHead();
@@ -374,10 +365,12 @@ public class Main extends JComponent {
 
             for (Client curr : info) {
                 if (buf[2] == curr.clientId) {
+                    curr.position = new Coordinate();
                     curr.position.x = buf[5];
                     curr.position.y = buf[6];
-                    xCoordBuf.add(buf[5]);
-                    yCoordBuf.add(buf[6]);
+                    System.out.println("\treceiving: " + "(" + (buf[5] + 100) + ", " + (buf[6] + 100) + ")");
+                    xCoordBuf.add((byte) (buf[5] + 100));
+                    yCoordBuf.add((byte) (buf[6] + 100));
                     colorBuf.add((byte)curr.objectDesc.ordinal());
                     // shape to print
                     switch (curr.objectForm.ordinal()){
@@ -385,16 +378,24 @@ public class Main extends JComponent {
 //                            System.in.available();
 //                        }
                     }
+//                    System.out.println(seqNo);
+//                    System.out.println(curr.position.x);
+//                    System.out.println(curr.clientId);
+//                    System.out.println(curr.objectDesc);
+//                    System.out.println(curr.objectForm);
+//                    System.out.println(curr.position.x);
+//                    System.out.println(curr.position.y);
+
                 }
             }
 
-            System.out.println(newPlayerPositionMsg.msg.head.length);
-            System.out.println(newPlayerPositionMsg.msg.head.seqNo);
-            System.out.println(newPlayerPositionMsg.msg.head.id);
-            System.out.println(newPlayerPositionMsg.msg.head.type); // should always be MsgType.Change
-            System.out.println(newPlayerPositionMsg.msg.type); // should always be ChangeType.NewPlayerPosition
-            System.out.println(newPlayerPositionMsg.pos.x);
-            System.out.println(newPlayerPositionMsg.pos.y);
+//            System.out.println(newPlayerPositionMsg.msg.head.length);
+//            System.out.println(newPlayerPositionMsg.msg.head.seqNo);
+//            System.out.println(newPlayerPositionMsg.msg.head.id);
+//            System.out.println(newPlayerPositionMsg.msg.head.type); // should always be MsgType.Change
+//            System.out.println(newPlayerPositionMsg.msg.type); // should always be ChangeType.NewPlayerPosition
+//            System.out.println(newPlayerPositionMsg.pos.x);
+//            System.out.println(newPlayerPositionMsg.pos.y);
 
 //            xCoordBuf.add((byte)newPlayerPositionMsg.pos.x);
 //            xCoordBuf.add((byte)newPlayerPositionMsg.pos.y);
@@ -452,29 +453,8 @@ public class Main extends JComponent {
 
     public static void speak() throws IOException
     {
-        //new position
-        switch (direction)
-        {
-            case -1:
-                break;
-            case 0:
-                getClient(id).position.y -= 1;
-                break;
-            case 1:
-                getClient(id).position.y += 1;
-                break;
-            case 2:
-                getClient(id).position.x -= 1;
-                break;
-            case 3:
-                getClient(id).position.x += 1;
-                break;
-            default:
-                System.out.println("Error in speak() switch");
-                return;
-        }
         byte[] pl = new byte[7];
-        // send more basic values
+
         pl[0] = 7;
         pl[1] = (byte) ++seqNo;
         pl[2] = (byte)id;
@@ -483,8 +463,30 @@ public class Main extends JComponent {
         pl[5] = (byte)getClient(id).position.x;
         pl[6] = (byte)getClient(id).position.y;
 
+        //new position
+        switch (direction)
+        {
+            case -1:
+                break;
+            case 0:
+                pl[6] -= 1;
+                break;
+            case 1:
+                pl[6] += 1;
+                break;
+            case 2:
+                pl[5] -= 1;
+                break;
+            case 3:
+                pl[5] += 1;
+                break;
+            default:
+                System.out.println("Error in speak() switch");
+                return;
+        }
 
-        System.out.println(pl);
+        //System.out.println(pl);
+        System.out.print("sending: (" + pl[5] + ", " + pl[6] + ")");
         out.write(pl);
     }
 

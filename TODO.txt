@@ -1,0 +1,10 @@
+what I want:
+
+get a unique absolute values that can be translated to move clients
+
+
+*square rendered on the coordinate received*
+*colored by ObjectDesc ordinal*
+
+extra:
+*get certain shape depending on ObjectForm*

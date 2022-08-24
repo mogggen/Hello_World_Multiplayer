@@ -45,6 +45,12 @@ unsigned int seqNum;
 
 bool isLegalMove(const unsigned int& clientId, const Coordinate& newPos)
 {
+	if (connections.size() == 0)
+	{
+		// should never happen
+		std::cerr << "number of connected client was 0" << std::endl;
+		exit(1);
+	}
 	for (Connection& c : connections)
 	{
 		if (c.id == clientId)
@@ -68,12 +74,6 @@ bool isLegalMove(const unsigned int& clientId, const Coordinate& newPos)
 		}
 		if (newPos == c.coord)
 			return false; // no new player position to broadcast
-	}
-	if (connections.size() == 0)
-	{
-		// should never happen
-		std::cerr << "number of connected client was 0" << std::endl;
-		exit(1);
 	}
 	return false;
 }
@@ -141,9 +141,10 @@ void deserialize(char* buf, MoveEvent* moveEvent) // make a new MoveEvent before
 	moveEvent->event.head.seqNo = buf[1];
 	moveEvent->event.head.id = buf[2];
 	moveEvent->event.head.type = (MsgType)buf[3];
+	moveEvent->event.type = (EventType)buf[4];
 
-	moveEvent->pos.x = buf[4];
-	moveEvent->pos.y = buf[5];
+	moveEvent->pos.x = buf[5];
+	moveEvent->pos.y = buf[6];
 }
 
 void sendAll(const char* buf, const int& len);
@@ -151,6 +152,7 @@ void sendAll(const char* buf, const int& len);
 
 void moved(const int& clientid, const Coordinate& newPos)
 {
+	if (newPos.x < -100 || newPos.x > 100 || newPos.y < -100 || newPos.y > 100) return;
 	for (Connection& c : connections)
 	{
 		if (newPos == c.coord)
@@ -312,7 +314,6 @@ void receiving(const SOCKET& s)
 			//kicked(player);
 			break;
 		}
-		std::printf("message recevied\n");
 
 		
 		JoinMsg* joinMsg = new JoinMsg();
@@ -322,8 +323,23 @@ void receiving(const SOCKET& s)
 		MoveEvent* moveEvent = new MoveEvent();
 		deserialize(buf, moveEvent);
 
-		printf("%i", (int)joinMsg->head.type);
-		printf("%i", connections.size());
+		printf("MsgType: ");
+		switch (joinMsg->head.type)
+		{
+		case Join:
+			printf("join");
+			break;
+
+		case Leave:
+			printf("Leave");
+
+		case Event:
+			printf("Event");
+		default:
+			break;
+		}
+		
+		printf("\r\nconnections: %i\r\n", connections.size());
 		switch (joinMsg->head.type)
 		{
 		case Join:
@@ -340,12 +356,14 @@ void receiving(const SOCKET& s)
 			{
 				if (joinMsg->head.id == connections[i].id)
 				{
+					connections[i].id = newClientId;
 					connections[i].description = joinMsg->desc;
 					connections[i].form = joinMsg->form;
+					break;
 				}
 			}
 
-			joinedAndMoved(joinMsg->head.id);
+			joinedAndMoved(newClientId);
 			break;
 
 		case Leave:
@@ -361,6 +379,7 @@ void receiving(const SOCKET& s)
 			break;
 
 		case Event:
+			printf("\treceiving: (%i, %i)\n", moveEvent->pos.x, moveEvent->pos.y);
 			for (size_t i = 0; i < connections.size(); i++)
 			{
 				if (moveEvent->event.head.id == connections[i].id)
@@ -393,7 +412,7 @@ void receiving(const SOCKET& s)
 		//}
 		// from java to server
 		
-		printf("%s\r\n", buf);
+		//printf("%s\r\n", buf);
 	}
 
 // closes the socket after receiving a afk ping
@@ -403,57 +422,34 @@ void receiving(const SOCKET& s)
 
 const Coordinate first_avalible_Coordinate()
 {
-	// stupid bubble sort
-	for (size_t i = 0; i < connections.size(); i++)
+	bool found = false;
+	Coordinate start = { -100, -100 };
+	if (connections.size() == 0)
+		return start;
+	for (; start.y <= 100;)
 	{
-		for (size_t j = 1; j < connections.size() - i; j++)
-		{
-			Connection temp;
-			if (connections[j - 1].coord.y > connections[j].coord.y)
-			{
-				temp = connections[j - 1];
-				connections[j - 1] = connections[j];
-				connections[j] = temp;
-			}
-			else if (connections[j - 1].coord.y == connections[j].coord.y)
-			{
-				if (connections[j - 1].coord.x > connections[j].coord.x)
-				{
-					temp = connections[j - 1];
-					connections[j - 1] = connections[j];
-					connections[j] = temp;
-				}
-			}
-		}
-	}
-	
-	for (Coordinate start = { -100, -100 };;)
-	{
-		if (connections.size() == 0) return start;
+		found = true;
 		for (Connection c : connections)
 		{
+			if (start.x > 100) // row is full so move to next one
+			{
+				start = { -100, start.y++ };
+			}
 			if (start == c.coord)
 			{
-				if (start.x > 100) // row is full so move to next one
-				{
-					if (start.y > 100) // server is full
-					{
-						// nope
-					}
-					start = { -100, start.y++ };
-				}
-				else
-				{
-					start.x++;
-				}
+				start.x++;
+				found = false;
+				break;
 			}
-			else
-			{
-				return start;
-			}
+		}
+		if (found)
+		{
+			printf("sending: (%i, %i)", start.x, start.y);
+			return start;
 		}
 	}
 	// never happens (unless you have 10201 clients connected already connected)
+	printf("Error in first_avalible_Coordinate(): no space left");
 	return Coordinate{ 101, 101 };
 }
 
@@ -472,7 +468,7 @@ int main()
 		
 		// setting ObjectDesc and ObjectForm to 0
 		connections.push_back({
-			newClientId,
+			0,
 			Human,
 			Cube,
 			first_avalible_Coordinate(),
@@ -487,8 +483,8 @@ int main()
 		
 		gameBoard.unlock();
 
-		joinedAndMoved(newClientId);
 		newClientId++;
+		joinedAndMoved(newClientId);
 	}
 
 	// blocking until all threads have joined (which will never happen naturally due to the infinite loop)

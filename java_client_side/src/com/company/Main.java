@@ -134,7 +134,6 @@ public class Main extends JComponent {
 
     static int seqNo = 0;
     static int id = 0;
-    //static Coordinate pos = new Coordinate();
     static byte direction = -1;
 
     enum dir
@@ -184,7 +183,11 @@ public class Main extends JComponent {
                         case 83, 40 -> direction = (byte)dir.right.ordinal();
                         case 65, 37 -> direction = (byte)dir.up.ordinal();
                         case 68, 39 -> direction = (byte)dir.down.ordinal();
+                        default -> {
+                            System.out.println("not a valid keypress.");
+                        }
                     }
+                    //final Runnable runnable = (Runnable) Toolkit.getDefaultToolkit().getDesktopProperty("win.sound.exclamation"); if (runnable != null) runnable.run();
                     try {
                         speak();
                     } catch (IOException exception) {
@@ -209,17 +212,19 @@ public class Main extends JComponent {
     //handles the drawing of the input value
     static class PixelCanvas extends JComponent
     {
-        ArrayList<Byte> posXBuf = new ArrayList<>();
-        ArrayList<Byte> posYBuf = new ArrayList<>();
+        ArrayList<Byte> xCoordBuf = new ArrayList<>();
+        ArrayList<Byte> yCoordBuf = new ArrayList<>();
         ArrayList<Byte> colorBuf = new ArrayList<>();
-        void SetParamArr(ArrayList<Byte> xBuf,
-                         ArrayList<Byte> yBuf,
-                         ArrayList<Byte> color)
+        void SetParamArr()
         {
-            System.out.println("is paint component called directly after this");
-            this.posXBuf = xBuf;
-            this.posYBuf = yBuf;
-            this.colorBuf = color;
+            this.xCoordBuf.clear();
+            this.yCoordBuf.clear();
+            this.colorBuf.clear();
+            for (Client c : info){
+                this.xCoordBuf.add((byte)c.position.x);
+                this.yCoordBuf.add((byte)c.position.y);
+                this.colorBuf.add((byte)c.objectDesc.ordinal());
+            }
         }
 
         @Override
@@ -227,14 +232,14 @@ public class Main extends JComponent {
             super.paintComponent(g); // happens when the buffer.size changes
             System.out.println("Connections: " + info.size());
             if (info != null && info.size() > 0) {
-                for (int i = 0; i < posXBuf.size(); i++){
+                for (int i = 0; i < xCoordBuf.size(); i++){
                     if (colorBuf.get(i) == 0){
                         return;
                     }
                     int up = Fit(colorBuf.get(i), 1, 16);
                     int down = Fit(colorBuf.get(i), 16, 1);
                     g.setColor(new Color(down, up, down));
-                    g.fillRect(posXBuf.get(i), posYBuf.get(i), 10, 10);
+                    g.fillRect(xCoordBuf.get(i), yCoordBuf.get(i), 10, 10);
                 }
             }
         }
@@ -308,18 +313,22 @@ public class Main extends JComponent {
             if (id == 0) {
                 id = newPlayerMsg.msg.head.id;
             }
-            Client c = new Client();
-            c.clientId = newPlayerMsg.msg.head.id;
-            c.objectDesc = newPlayerMsg.desc;
-            c.objectForm = newPlayerMsg.form;
-            c.position.x = 101; // not set
-            c.position.y = 101; // not set
-            info.add(c);
-
-            if (getClient(c.clientId) != null) {
-                xCoordBuf.add((byte) c.position.x);
-                yCoordBuf.add((byte) c.position.y);
-                colorBuf.add((byte) ObjectForm.values()[buf[6]].ordinal());
+            boolean found = false;
+            for (Client c : info){
+                if (c.clientId == newPlayerMsg.msg.head.id){
+                    found = true;
+                    break;
+                }
+            }
+            if (!found){
+                Client c = new Client();
+                c.clientId = newPlayerMsg.msg.head.id;
+                c.objectDesc = newPlayerMsg.desc;
+                c.objectForm = newPlayerMsg.form;
+                c.position = new Coordinate();
+                c.position.x = 101; // not set
+                c.position.y = 101; // not set
+                info.add(c);
             }
         }
 
@@ -352,26 +361,23 @@ public class Main extends JComponent {
             newPlayerPositionMsg.pos.x = buf[5];
             newPlayerPositionMsg.pos.y = buf[6];
 
-            for (Client curr : info) {
-                if (buf[2] == curr.clientId) {
-                    curr.position.x = newPlayerPositionMsg.pos.x;
-                    curr.position.y = newPlayerPositionMsg.pos.y;
+            for (Client c : info) {
+                if (newPlayerPositionMsg.msg.head.id == c.clientId) {
+                    c.position = new Coordinate();
+                    c.position.x = newPlayerPositionMsg.pos.x;
+                    c.position.y = newPlayerPositionMsg.pos.y;
                     System.out.println("\treceiving: " + "(" + (buf[5] + 100) + ", " + (buf[6] + 100) + ")");
-                    xCoordBuf.add((byte) (buf[5] + 100));
-                    yCoordBuf.add((byte) (buf[6] + 100));
-                    colorBuf.add((byte)curr.objectDesc.ordinal());
-                    // shape to print...
                 }
             }
         }
-        window.canvas.SetParamArr(xCoordBuf, yCoordBuf, colorBuf);
+        window.canvas.SetParamArr();
         window.frame.repaint();
     }
 
     public static void speak() throws IOException
     {
-        if (id == 0) {
-            System.out.println("Caution: please establish a connection before attempting to move.");
+        if (id == 0){
+            System.out.println("Caution: Connect to server before attempting to move.");
             return;
         }
         byte[] pl = new byte[7];
@@ -413,7 +419,6 @@ public class Main extends JComponent {
         GUI window = new GUI();
         runSetup(4999);
         while(true) {
-            // no specific protocol needs to be used
             try {
                 listen(window);
             }catch (SocketException s){

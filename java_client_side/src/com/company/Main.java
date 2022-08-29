@@ -30,9 +30,6 @@ public class Main extends JComponent {
         ObjectForm objectForm;
     }
 
-    static ArrayList<Byte> globX = new ArrayList<>();
-    static ArrayList<Byte> globY = new ArrayList<>();
-    static ArrayList<Byte> globColor = new ArrayList<>();
     static ArrayList<Client> info = new ArrayList<>();
 
     static ServerSocket ss;
@@ -184,7 +181,7 @@ public class Main extends JComponent {
                         case 65, 37 -> direction = (byte)dir.up.ordinal();
                         case 68, 39 -> direction = (byte)dir.down.ordinal();
                         default -> {
-                            System.out.println("not a valid keypress.");
+                            System.out.println("not a valid key-press.");
                         }
                     }
                     //final Runnable runnable = (Runnable) Toolkit.getDefaultToolkit().getDesktopProperty("win.sound.exclamation"); if (runnable != null) runnable.run();
@@ -212,35 +209,19 @@ public class Main extends JComponent {
     //handles the drawing of the input value
     static class PixelCanvas extends JComponent
     {
-        ArrayList<Byte> xCoordBuf = new ArrayList<>();
-        ArrayList<Byte> yCoordBuf = new ArrayList<>();
-        ArrayList<Byte> colorBuf = new ArrayList<>();
-        void SetParamArr()
-        {
-            this.xCoordBuf.clear();
-            this.yCoordBuf.clear();
-            this.colorBuf.clear();
-            for (Client c : info){
-                this.xCoordBuf.add((byte)c.position.x);
-                this.yCoordBuf.add((byte)c.position.y);
-                this.colorBuf.add((byte)c.objectDesc.ordinal());
-            }
-        }
-
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g); // happens when the buffer.size changes
             System.out.println("Connections: " + info.size());
-            if (info != null && info.size() > 0) {
-                for (int i = 0; i < xCoordBuf.size(); i++){
-                    if (colorBuf.get(i) == 0){
-                        return;
-                    }
-                    int up = Fit(colorBuf.get(i), 1, 16);
-                    int down = Fit(colorBuf.get(i), 16, 1);
-                    g.setColor(new Color(down, up, down));
-                    g.fillRect(xCoordBuf.get(i), yCoordBuf.get(i), 10, 10);
-                }
+            for (Client c : info) {
+//                if (c.objectDesc.ordinal() == 0) {
+//                    return;
+//                }
+                int up = 100;
+                int down = 255;
+                g.setColor(new Color(down, up, down));
+                System.out.println("Client #" + c.clientId + ": " + c.position.x + ", " + c.position.y + ")");
+                g.fillRect(c.position.x + 100, c.position.y + 100, 10, 10);
             }
         }
 
@@ -366,11 +347,11 @@ public class Main extends JComponent {
                     c.position = new Coordinate();
                     c.position.x = newPlayerPositionMsg.pos.x;
                     c.position.y = newPlayerPositionMsg.pos.y;
-                    System.out.println("\treceiving: " + "(" + (buf[5] + 100) + ", " + (buf[6] + 100) + ")");
+                    System.out.println("\treceiving: " + "(" + (buf[5]) + ", " + (buf[6]) + ")");
                 }
             }
         }
-        window.canvas.SetParamArr();
+        //window.canvas.SetParamArr(globX, globY, globColor);
         window.frame.repaint();
     }
 

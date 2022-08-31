@@ -70,17 +70,25 @@ void recv_from_java()
 	for(;;)
 	{
 		int count = recv(java_sock, buf, sizeof(buf), 0);
+
 		if (count == SOCKET_ERROR)
 		{
-			leaveServer(linux_sock, buf[3]);
+			leaveServer(linux_sock, buf[2]);
+			closesocket(java_sock);
+			WSACleanup();
+			return;
+		}
+
+		if (count == 0)
+		{
+			closesocket(java_sock);
+			WSACleanup();
 			return;
 		}
 		send(linux_sock, buf, buf[0], 0);
 		printf("traffic: java -> linux: %d bytes\n", count);
 	}
 
-	// closesocket(java_sock);
-	// WSACleanup();
 }
 
 void recv_from_server()
@@ -92,15 +100,22 @@ void recv_from_server()
 		int count = recv(linux_sock, buf, sizeof(buf), 0);
 		if (count == SOCKET_ERROR)
 		{
-			leaveClient(java_sock, buf[3]);
+			leaveClient(java_sock, buf[2]);
+			closesocket(linux_sock);
+			WSACleanup();
+			return;
+		}
+		
+		if (count == 0)
+		{
+			closesocket(linux_sock);
+			WSACleanup();
 			return;
 		}
 		send(java_sock, buf, buf[0], 0);
 		printf("traffic: java <- linux: %d bytes\n", count);
 	}
 	
-	// closesocket(linux_sock);
-	// WSACleanup();
 }
 
 void main()

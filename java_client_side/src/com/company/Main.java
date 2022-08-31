@@ -15,6 +15,8 @@ import java.util.ArrayList;
 public class Main extends JComponent {
 
     // Coordinate system: -100 - 100
+    static int width = 3;
+    static int height = 3;
     // Resolution: 505x505
 
     static void Log(String msg, int clientId)
@@ -158,8 +160,8 @@ public class Main extends JComponent {
         PixelCanvas canvas = new PixelCanvas();
         public GUI()
         {
-            canvas.setBounds(0, 0, 303, 303);
-            frame.setSize(303, 303);
+            canvas.setBounds(0, 0, 101 * width, 101 * height);
+            frame.setSize(101 * width, 101 * height);
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setTitle("GUI Client");
             frame.add(canvas);
@@ -212,22 +214,18 @@ public class Main extends JComponent {
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g); // happens when the buffer.size changes
-            System.out.println("Connections: " + info.size());
             for (Client c : info) {
-//                if (c.objectDesc.ordinal() == 0) {
-//                    return;
-//                }
                 int up = 100;
                 int down = 255;
                 g.setColor(new Color(down, up, down));
-                System.out.println("Client #" + c.clientId + ": " + c.position.x + ", " + c.position.y + ")");
-                g.fillRect(c.position.x + 100, c.position.y + 100, 10, 10);
+                System.out.println("Client #" + c.clientId + ": (" + c.position.x + ", " + c.position.y + ")");
+                g.fillRect((c.position.x + 100) * width, (c.position.y + 100) * height, 10, 10);
             }
         }
 
         @Override
         public Dimension getPreferredSize() {
-            return new Dimension(505, 505);
+            return new Dimension(101 * width, 101 * height);
         }
     }
 
@@ -275,7 +273,6 @@ public class Main extends JComponent {
             System.exit(1);
         }
 
-        //Log("[" + ChangeType.values()[buf[4]] + "]", buf[2]);
         if ((byte)ChangeType.NewPlayer.ordinal() == buf[4]){
             NewPlayerMsg newPlayerMsg = new NewPlayerMsg();
             newPlayerMsg.msg = new ChangeMsg();
@@ -351,7 +348,6 @@ public class Main extends JComponent {
                 }
             }
         }
-        //window.canvas.SetParamArr(globX, globY, globColor);
         window.frame.repaint();
     }
 

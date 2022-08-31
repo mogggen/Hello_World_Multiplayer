@@ -19,7 +19,6 @@ bool operator==(const Coordinate& lhs, Coordinate& rhs)
 	return lhs.x == rhs.x && lhs.y == rhs.y;
 }
 
-struct ConnectionThread;
 struct Connection
 {
 	unsigned int id;
@@ -31,16 +30,11 @@ struct Connection
 	SOCKET client;
 };
 
-struct ConnectionThread
-{
-	std::thread recvThread;
-};
-
 SOCKET newClient;
 unsigned int newClientId = 0u;
 std::mutex gameBoard;
 std::vector<Connection> connections;
-std::vector<ConnectionThread> connectionThreads;
+std::vector<std::thread> threads;
 unsigned int seqNum;
 
 bool isLegalMove(const unsigned int& clientId, const Coordinate& newPos)
@@ -231,41 +225,26 @@ void kicked(const int& clientId)
 	sendAll(buf, playerLeaveMsg.msg.head.length);
 }
 
-void kickAll(const std::vector<unsigned int> disconnected)
-{
-	for (int d : disconnected)
-	{
-		kicked(d);
-	}
-}
-
 void sendAll(const char* buf, const int& len)
 {
 	gameBoard.lock();
-	std::vector<unsigned int> disconnected;
-restart:
 	for (size_t i = 0; i < connections.size(); i++)
 	{
 		int attempt = send(connections[i].client, buf, len, 0);
-		if (attempt == SOCKET_ERROR)
+		/*if (attempt == SOCKET_ERROR)
 		{
-			if (connectionThreads[i].recvThread.joinable())
+			/*connections.erase(connections.begin() + i);
+			if (threads[i].joinable())
 			{
-				connectionThreads[i].recvThread.join();
+				threads[i].join();
 			}
-			disconnected.push_back(connections[i].id);
-			connections.erase(connections.begin() + i);
-			connectionThreads.erase(connectionThreads.begin() + i);
-			goto restart;
-		}
+			threads.erase(threads.begin() + i);
+		}*/
 	}
-
-	// recursivley kick newly disconnected players
 	gameBoard.unlock();
-	//kickAll(disconnected);
 }
 
-SOCKET setup_listening(const std::string& ipAddress, const int& listening_port)
+SOCKET setup_listening(const int& listening_port)
 {
 	WSAData data;
 	WORD ver = MAKEWORD(2, 2);
@@ -309,13 +288,10 @@ void receiving(const SOCKET& s)
 		int count = recv(s, buf, sizeof(buf), 0);
 		if (count == SOCKET_ERROR)
 		{
-			//std::cerr << "SERVER Error code: " << WSAGetLastError() << std::endl;
-			// broadcast that the client has left the server
-			//kicked(player);
-			break;
+			closesocket(s);
+			return;
 		}
 
-		
 		JoinMsg* joinMsg = new JoinMsg();
 		deserialize(buf, joinMsg); // check the resulting deserialization
 		LeaveMsg* leaveMsg = new LeaveMsg();
@@ -323,7 +299,7 @@ void receiving(const SOCKET& s)
 		MoveEvent* moveEvent = new MoveEvent();
 		deserialize(buf, moveEvent);
 
-		printf("MsgType: ");
+		printf("\r\nMsgType: ");
 		switch (joinMsg->head.type)
 		{
 		case Join:
@@ -339,19 +315,9 @@ void receiving(const SOCKET& s)
 			break;
 		}
 		
-		printf("\r\nconnections: %i\r\n", connections.size());
 		switch (joinMsg->head.type)
 		{
 		case Join:
-			//connections.push_back(Connection
-			//	{
-			//		newClientId,
-			//		joinMsg->desc,
-			//		joinMsg->form,
-			//		first_avalible_Coordinate(),
-
-
-			//	});
 			for (size_t i = 0; i < connections.size(); i++)
 			{
 				if (joinMsg->head.id == connections[i].id)
@@ -362,7 +328,6 @@ void receiving(const SOCKET& s)
 					break;
 				}
 			}
-
 			joinedAndMoved(newClientId);
 			break;
 
@@ -371,8 +336,9 @@ void receiving(const SOCKET& s)
 			{
 				if (leaveMsg->head.id == connections[i].id)
 				{
-					connections.erase(connections.begin() + i);
-					connectionThreads.erase(connectionThreads.begin() + i);
+					closesocket(s);
+					WSACleanup();
+					return;
 				}
 			}
 			kicked(leaveMsg->head.id);
@@ -394,30 +360,7 @@ void receiving(const SOCKET& s)
 			exit(1);
 			break;
 		}
-
-		//if (isItOkToMove())
-		//{
-		//	// parse data
-		//	// forward message
-		//}
-
-		//// on server check
-		//if (okToMove())
-		//{
-		//	sendAll(NewPlayerPostion);
-		//}
-		//else
-		//{
-		//	// do nothing
-		//}
-		// from java to server
-		
-		//printf("%s\r\n", buf);
 	}
-
-// closes the socket after receiving a afk ping
-	closesocket(s);
-	WSACleanup();
 }
 
 const Coordinate first_avalible_Coordinate()
@@ -453,18 +396,42 @@ const Coordinate first_avalible_Coordinate()
 	return Coordinate{ 101, 101 };
 }
 
+void joinThreads()
+{
+	for (;;)
+	{
+		for (size_t i = 0; i < threads.size(); i++)
+		{
+			if (threads[i].joinable())
+			{
+				threads[i].join();
+				connections.erase(connections.begin() + i);
+				try
+				{
+					threads.erase(threads.begin() + i);
+				}
+				catch(...)
+				{
+					std::cerr << "Error joining threads" << std::endl;
+				}
+			}
+		}
+	}
+}
+
 int main()
 {
-	std::string ipAddress = "127.0.0.1";
-	int starting_port = 54000; // linux_port
-
-	SOCKET listening = setup_listening(ipAddress, starting_port);
+	std::thread yes_platinum = std::thread(joinThreads);
+	SOCKET listening = setup_listening(54000);
 
 	for (;;)
 	{
 		newClient = accept(listening, nullptr, nullptr);
-		gameBoard.lock();
-
+		if (newClient == 0xFFFFFFFFFFFFFFFF)
+		{
+			newClient = 0x0;
+			continue;
+		}
 		
 		// setting ObjectDesc and ObjectForm to 0
 		connections.push_back({
@@ -477,22 +444,9 @@ int main()
 
 		size_t last = connections.size() - 1;
 
-		connectionThreads.push_back({
-			});
-		connectionThreads[last].recvThread = std::thread(receiving, connections[last].client);
-		
-		gameBoard.unlock();
+		threads.push_back(std::thread(receiving, connections[last].client));
 
 		newClientId++;
 		joinedAndMoved(newClientId);
-	}
-
-	// blocking until all threads have joined (which will never happen naturally due to the infinite loop)
-	for (size_t i = 0; i < connections.size(); i++)
-	{
-		if (connectionThreads[i].recvThread.joinable())
-		{
-			connectionThreads[i].recvThread.join();
-		}
 	}
 }

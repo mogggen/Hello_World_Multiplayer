@@ -35,6 +35,8 @@ unsigned int newClientId = 0u;
 std::mutex gameBoard;
 std::vector<Connection> connections;
 std::vector<std::thread> threads;
+std::vector<NewPlayerMsg> prevNewMsg;
+std::vector<NewPlayerPositionMsg> prevNewPosMsg;
 unsigned int seqNum;
 
 bool isLegalMove(const unsigned int& clientId, const Coordinate& newPos)
@@ -186,6 +188,7 @@ void joinedAndMoved(const int& clientid)
 		Human,
 		Pyramid,
 	};
+	prevNewMsg.push_back(newPlayerMsg);
 	char* buf = serialize(&newPlayerMsg);
 	sendAll(buf, newPlayerMsg.msg.head.length);
 
@@ -203,8 +206,82 @@ void joinedAndMoved(const int& clientid)
 		connections[connections.size() - 1].coord,
 		{0, 0}
 	};
+	prevNewPosMsg.push_back(newPlayerPositionMsg);
 	char* buf2 = serialize(&newPlayerPositionMsg);
 	sendAll(buf2, newPlayerPositionMsg.msg.head.length);
+
+	// broadcasts to the new player all the current players' positions
+	for (size_t i = 0; i < connections.size(); i++)
+	{
+		char* buf3 = serialize(&prevNewMsg[i]);
+		sendAll(buf3, prevNewMsg[i].msg.head.length);
+		
+		bool foundClient = false;
+		for (NewPlayerPositionMsg& n : prevNewPosMsg)
+		{
+			if (n.msg.head.id == connections[i].id)
+			{
+				n.pos.x = connections[i].coord.x;
+				n.pos.y = connections[i].coord.y;
+				foundClient = true;
+				break;
+			}
+		}
+
+		if (foundClient)
+		{
+			char* buf4 = serialize(&prevNewPosMsg[i]);
+			sendAll(buf4, prevNewPosMsg[i].msg.head.length);
+		}
+		else
+		{
+			std::cout << "test array lengths" << std::endl
+				<< "ConnectionsId: ";
+			for (size_t i = 0; i < connections.size(); i++)
+			{
+				std::cout << " " << connections[i].id;
+			}
+			std::cout << "\r\nprevNewMsgId: ";
+			for (size_t i = 0; i < prevNewMsg.size(); i++)
+			{
+				std::cout << " " << prevNewMsg[i].msg.head.id;
+			}
+			std::cout << "\r\nprevNewPosMsgId: ";
+			for (size_t i = 0; i < prevNewPosMsg.size(); i++)
+			{
+				std::cout << " " << prevNewPosMsg[i].msg.head.id;
+			}
+
+
+			std::cout << "\r\n\r\nedge cases found: ";
+			if (prevNewMsg.size() > connections.size())
+			{
+				// a player has left the game and their position shouldn't be broadcasted anymore
+				for (size_t i = 0; i < prevNewMsg.size();)
+				{
+					bool foundDelta = false;
+					for (Connection c : connections)
+					{
+						if (prevNewMsg[i].msg.head.id == c.id)
+						{
+							foundDelta = true;
+							i++;
+							break;
+						}
+					}
+					if (!foundDelta)
+					{
+						std::cout << " " << prevNewMsg[i].msg.head.id;
+						prevNewMsg.erase(prevNewMsg.begin() + i);
+					}
+				}
+			}
+			else if (prevNewMsg.size() != connections.size() || prevNewMsg.size() != prevNewPosMsg.size())
+			{
+				std::cerr << "Huh?" << std::endl;
+			}
+		}
+	}
 }
 
 void kicked(const int& clientId)

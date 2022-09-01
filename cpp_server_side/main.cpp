@@ -188,7 +188,6 @@ void joinedAndMoved(const int& clientid)
 		Human,
 		Pyramid,
 	};
-	prevNewMsg.push_back(newPlayerMsg);
 	char* buf = serialize(&newPlayerMsg);
 	sendAll(buf, newPlayerMsg.msg.head.length);
 
@@ -206,12 +205,11 @@ void joinedAndMoved(const int& clientid)
 		connections[connections.size() - 1].coord,
 		{0, 0}
 	};
-	prevNewPosMsg.push_back(newPlayerPositionMsg);
 	char* buf2 = serialize(&newPlayerPositionMsg);
 	sendAll(buf2, newPlayerPositionMsg.msg.head.length);
 
 	// broadcasts to the new player all the current players' positions
-	for (size_t i = 0; i < connections.size(); i++)
+	for (size_t i = 0; i < connections.size() - 1; i++)
 	{
 		char* buf3 = serialize(&prevNewMsg[i]);
 		sendAll(buf3, prevNewMsg[i].msg.head.length);
@@ -260,7 +258,7 @@ void joinedAndMoved(const int& clientid)
 				for (size_t i = 0; i < prevNewMsg.size();)
 				{
 					bool foundDelta = false;
-					for (Connection c : connections)
+					for (const Connection& c : connections)
 					{
 						if (prevNewMsg[i].msg.head.id == c.id)
 						{
@@ -282,6 +280,8 @@ void joinedAndMoved(const int& clientid)
 			}
 		}
 	}
+	prevNewMsg.push_back(newPlayerMsg);
+	prevNewPosMsg.push_back(newPlayerPositionMsg);
 }
 
 void kicked(const int& clientId)

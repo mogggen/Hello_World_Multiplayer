@@ -14,7 +14,7 @@
 #include "main.h"
 #pragma comment(lib, "ws2_32.lib")
 
-bool operator==(const Coordinate& lhs, Coordinate& rhs)
+bool operator==(const Coordinate& lhs, const Coordinate& rhs)
 {
 	return lhs.x == rhs.x && lhs.y == rhs.y;
 }
@@ -51,7 +51,7 @@ bool isLegalMove(const unsigned int& clientId, const Coordinate& newPos)
 	{
 		if (c.id == clientId)
 		{
-			if (std::sqrt((newPos.x - c.coord.x) * (newPos.x - c.coord.x) + (newPos.y - c.coord.y) * (newPos.y - c.coord.y)) > 1.)
+			if (sqrt((newPos.x - c.coord.x) * (newPos.x - c.coord.x) + (newPos.y - c.coord.y) * (newPos.y - c.coord.y)) > 1.)
 			{
 				return false;
 			}
@@ -149,7 +149,7 @@ void sendAll(const char* buf, const int& len);
 void moved(const int& clientid, const Coordinate& newPos)
 {
 	if (newPos.x < -100 || newPos.x > 100 || newPos.y < -100 || newPos.y > 100) return;
-	for (Connection& c : connections)
+	for (const Connection& c : connections)
 	{
 		if (newPos == c.coord)
 			return; // no new player position to broadcast
@@ -168,6 +168,15 @@ void moved(const int& clientid, const Coordinate& newPos)
 		/*Coordinate*/{newPos},
 		/*Coordinate*/{0, 0}
 	};
+	for (Connection& c : connections)
+	{
+		if (c.id == clientid)
+		{
+			c.coord.x = newPos.x;
+			c.coord.y = newPos.y;
+		}
+		printf("\r\nClient socket %llu, id %i: (%i, %i)\r\n", c.client, c.id, c.coord.x, c.coord.y);
+	}
 	char* buf = serialize(&newPlayerPositionMsg);
 	sendAll(buf, newPlayerPositionMsg.msg.head.length);
 }

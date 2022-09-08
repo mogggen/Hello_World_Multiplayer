@@ -183,6 +183,7 @@ public class Main extends JComponent {
                         case 65, 37 -> direction = (byte)dir.up.ordinal();
                         case 68, 39 -> direction = (byte)dir.down.ordinal();
                         default -> {
+                            direction = -1;
                             System.out.println("not a valid key-press.");
                         }
                     }

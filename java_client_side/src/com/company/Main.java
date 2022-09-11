@@ -313,7 +313,8 @@ public class Main extends JComponent {
         }
 
         if ((byte)ChangeType.PlayerLeave.ordinal() == buf[4]){
-            System.out.println("Entered PlaterLeaveMsg, Listen()");
+            System.out.println("Entered PlayerLeaveMsg, Listen()");
+            System.out.println("id received" + buf[2]);
             PlayerLeaveMsg playerLeaveMsg = new PlayerLeaveMsg();
             playerLeaveMsg.msg = new ChangeMsg();
             playerLeaveMsg.msg.head = new MsgHead();
@@ -325,7 +326,7 @@ public class Main extends JComponent {
             playerLeaveMsg.msg.type = ChangeType.values()[buf[4]]; // should always be ChangeType.PlayerLeave
 
             if (info.removeIf(c -> c.clientId == playerLeaveMsg.msg.head.id))
-                System.out.println("attempted to remove client, Connections: " + info.size());
+                System.out.println("Connections: " + info.size());
         }
 
         if ((byte)ChangeType.NewPlayerPosition.ordinal() == buf[4]){

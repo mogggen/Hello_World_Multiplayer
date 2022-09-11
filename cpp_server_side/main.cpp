@@ -308,6 +308,8 @@ void kicked(const int& clientId)
 		}
 	};
 	char* buf = serialize(&playerLeaveMsg);
+	printf("buf[2]: %i leaveMsg.head.id: %i\r\n", buf[2], playerLeaveMsg.msg.head.id);
+
 	sendAll(buf, playerLeaveMsg.msg.head.length);
 }
 
@@ -509,9 +511,9 @@ int main()
 	for (;;)
 	{
 		newClient = accept(listening, nullptr, nullptr);
-		if (newClient == 0xFFFFFFFFFFFFFFFF)
+		if (newClient == 0xFFFFFFFFFFFFFFFF) // occurs when a connections is interrupted unexpectedly
 		{
-			newClient = 0x0;
+			newClient = 0x0; // default value
 			continue;
 		}
 		
@@ -531,4 +533,6 @@ int main()
 		newClientId++;
 		joinedAndMoved(newClientId);
 	}
+	closesocket(newClient);
+	WSACleanup();
 }

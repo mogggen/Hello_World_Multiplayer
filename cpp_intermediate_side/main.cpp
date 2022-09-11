@@ -10,6 +10,7 @@ SOCKET java_sock;
 SOCKET linux_sock;
 
 unsigned int seqNo = 0u;
+int javaId = -1;
 
 char* serialize(LeaveMsg* leaveMsg)
 {
@@ -44,11 +45,13 @@ void leaveServer(SOCKET sock, const int& clientId)
 		}
 	};
 	char* buf = serialize(&leaveMsg);
+	printf("buf[2]: %i leaveMsg.head.id: %i\r\n", buf[2], leaveMsg.head.id);
 	send(sock, buf, leaveMsg.head.length, 0);
 }
 
 void leaveClient(SOCKET sock, const int& clientId)
 {
+	printf("PlayerLeaveMsg id: %i\r\n", clientId);
 	PlayerLeaveMsg playerLeaveMsg = 
 	{
 		{
@@ -61,6 +64,7 @@ void leaveClient(SOCKET sock, const int& clientId)
 			PlayerLeave
 		}
 	};
+	printf("printing the value of the id recevied from socket %llu: %i\r\n", java_sock, playerLeaveMsg.msg.head.id);
 }
 
 void recv_from_java()
@@ -75,7 +79,6 @@ void recv_from_java()
 		{
 			leaveServer(linux_sock, buf[2]);
 			closesocket(java_sock);
-			WSACleanup();
 			return;
 		}
 
@@ -83,11 +86,17 @@ void recv_from_java()
 		{
 			leaveServer(linux_sock, buf[2]);
 			closesocket(java_sock);
-			WSACleanup();
 			return;
 		}
+
+		
 		send(linux_sock, buf, buf[0], 0);
 		printf("traffic: java -> linux: %d bytes\n", count);
+
+		if (buf[3] == Join)
+		{
+			javaId = buf[2];
+		}
 	}
 
 }
@@ -104,7 +113,6 @@ void recv_from_server()
 		{
 			leaveClient(java_sock, buf[2]);
 			closesocket(linux_sock);
-			WSACleanup();
 			return;
 		}
 		
@@ -112,13 +120,12 @@ void recv_from_server()
 		{
 			leaveClient(java_sock, buf[2]);
 			closesocket(linux_sock);
-			WSACleanup();
 			return;
 		}
 		send(java_sock, buf, buf[0], 0);
 		printf("traffic: java <- linux: %d bytes\n", count);
 	}
-	
+	printf("printing the value of the id recevied from socket %llu: %i\r\n", linux_sock, buf[2]);
 }
 
 void main()

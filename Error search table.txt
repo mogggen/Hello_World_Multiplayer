@@ -1,0 +1,17 @@
+cases: 
+#1 java GUI closes and 
+#2 intermediate cpp closes and sends a SOCKET_ERROR to server cpp
+
+case #1
+	expected id:	actual id:
+intermediate     -1 or socket	0
+server side		1		0
+intermediate	1		0
+java			1		0
+
+case #2
+	expected id:	actual id:
+intermediate	SOCKET_ERROR?
+server side		1 or socket	?
+intermediate	1		?
+java			1		?

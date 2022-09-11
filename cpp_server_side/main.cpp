@@ -143,7 +143,7 @@ void deserialize(char* buf, MoveEvent* moveEvent) // make a new MoveEvent before
 	moveEvent->pos.y = buf[6];
 }
 
-void sendAll(const char* buf, const int& len);
+void sendAll(const char* buf, const int& len, int disconnectedId = -1);
 
 
 void moved(const int& clientid, const Coordinate& newPos)
@@ -311,21 +311,17 @@ void kicked(const int& clientId)
 	sendAll(buf, playerLeaveMsg.msg.head.length);
 }
 
-void sendAll(const char* buf, const int& len)
+void sendAll(const char* buf, const int& len, int disconnectedId)
 {
 	gameBoard.lock();
 	for (size_t i = 0; i < connections.size(); i++)
 	{
+		printf("Iterations: %llu\r\n", i);
 		int attempt = send(connections[i].client, buf, len, 0);
-		/*if (attempt == SOCKET_ERROR)
+		if (attempt == SOCKET_ERROR && connections[i].id != disconnectedId)
 		{
-			/*connections.erase(connections.begin() + i);
-			if (threads[i].joinable())
-			{
-				threads[i].join();
-			}
-			threads.erase(threads.begin() + i);
-		}*/
+			sendAll(buf, len, connections[i].id);
+		}
 	}
 	gameBoard.unlock();
 }
@@ -458,7 +454,7 @@ const Coordinate first_avalible_Coordinate()
 	for (; start.y <= 100;)
 	{
 		found = true;
-		for (Connection c : connections)
+		for (const Connection& c : connections)
 		{
 			if (start.x > 100) // row is full so move to next one
 			{

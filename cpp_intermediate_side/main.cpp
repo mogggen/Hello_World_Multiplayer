@@ -81,6 +81,7 @@ void recv_from_java()
 
 		if (count == 0)
 		{
+			leaveServer(linux_sock, buf[2]);
 			closesocket(java_sock);
 			WSACleanup();
 			return;
@@ -98,6 +99,7 @@ void recv_from_server()
 	for(;;)
 	{
 		int count = recv(linux_sock, buf, sizeof(buf), 0);
+		printf("recevied id: %i\r\n", buf[2]);
 		if (count == SOCKET_ERROR)
 		{
 			leaveClient(java_sock, buf[2]);
@@ -108,6 +110,7 @@ void recv_from_server()
 		
 		if (count == 0)
 		{
+			leaveClient(java_sock, buf[2]);
 			closesocket(linux_sock);
 			WSACleanup();
 			return;

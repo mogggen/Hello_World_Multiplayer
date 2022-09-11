@@ -215,6 +215,7 @@ public class Main extends JComponent {
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g); // happens when the buffer.size changes
+            System.out.println("Connections: " + info.size());
             for (Client c : info) {
                 int up = 100;
                 int down = 255;
@@ -312,6 +313,7 @@ public class Main extends JComponent {
         }
 
         if ((byte)ChangeType.PlayerLeave.ordinal() == buf[4]){
+            System.out.println("Entered PlaterLeaveMsg, Listen()");
             PlayerLeaveMsg playerLeaveMsg = new PlayerLeaveMsg();
             playerLeaveMsg.msg = new ChangeMsg();
             playerLeaveMsg.msg.head = new MsgHead();
@@ -322,7 +324,8 @@ public class Main extends JComponent {
             playerLeaveMsg.msg.head.type = MsgType.values()[buf[3]]; // Should always be MsgType.Change
             playerLeaveMsg.msg.type = ChangeType.values()[buf[4]]; // should always be ChangeType.PlayerLeave
 
-            info.removeIf(c -> c.clientId == playerLeaveMsg.msg.head.id);
+            if (info.removeIf(c -> c.clientId == playerLeaveMsg.msg.head.id))
+                System.out.println("attempted to remove client, Connections: " + info.size());
         }
 
         if ((byte)ChangeType.NewPlayerPosition.ordinal() == buf[4]){

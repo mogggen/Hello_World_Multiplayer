@@ -1,10 +1,24 @@
 what I want:
 
-get a unique absolute values that can be translated to move clients
+*make sure a Client is fully deleted on the server side*
+	* do a manual successful deletetion first *
+
+*make sure a Client has been kicked when a SOCKET_ERROR or a LeaveMsg is recevied*
+	* make sure the LeaveMsg ClientId isn't zero *
+
+client -> intermediate -> server |
+client <- intermediate <- server <
+
+       -x intermediate m> server
 
 
-*square rendered on the coordinate received*
-*colored by ObjectDesc ordinal*
+
+
+
+
+
+""*don't cause a off by one Error*""
 
 extra:
+*colored by ObjectDesc ordinal*
 *get certain shape depending on ObjectForm*

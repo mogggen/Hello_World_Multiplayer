@@ -47,17 +47,13 @@ void sendLeaveMsgToServer(const SOCKET& sock, const int& clientid)
 		}
 	};
 	char* buf = serialize(&leaveMsg);
-	printf("buf[2]: %i leaveMsg.head.id: %i\r\n", buf[2], leaveMsg.head.id);
 	if (javaId == UNDEFINED)
-		printf("Den får ju aldrig ens ett jävla fitt värde\r\n");
+		printf("javaId never got assigned\r\n");
 	send(sock, buf, leaveMsg.head.length, 0);
 }
 
 void sendLeaveMsgToJava(const SOCKET& sock)
 {
-	printf("PlayerLeaveMsg id: %i\r\n", javaId);
-	if (javaId == UNDEFINED)
-		printf("VAD FAN I HELASTE HELVETE\r\n");
 	PlayerLeaveMsg playerLeaveMsg =
 	{
 		{
@@ -70,7 +66,6 @@ void sendLeaveMsgToJava(const SOCKET& sock)
 			PlayerLeave
 		}
 	};
-	printf("printing the value of the id recevied from socket %llu: %i\r\n", java_sock, playerLeaveMsg.msg.head.id);
 }
 
 void recv_from_java()
@@ -80,39 +75,16 @@ void recv_from_java()
 	for(;;)
 	{
 		int count = recv(java_sock, buf, sizeof(buf), 0);
-		// FITT HOoOoOoR UNGE
-		printf("javaId: %i", javaId);
-		if (count == SOCKET_ERROR)
+		if (count < 1)
 		{
 			sendLeaveMsgToServer(linux_sock, javaId);
 			closesocket(java_sock);
 			return;
-		}
-
-		if (count == 0)
-		{
-			sendLeaveMsgToServer(linux_sock, javaId);
-			closesocket(java_sock);
-			return;
-		}
-
-		if (buf[3] == Change)
-		{
-			printf("ChangeType Change så jävla äckligt snyggt\r\n");
-			if (buf[4] == PlayerLeave)
-			{
-				printf("såja, bra där Einar\r\n");
-				javaId = buf[2];
-				printf("nu är javaId fanskapet: %i\r\n", javaId);
-			}
 		}
 
 		send(linux_sock, buf, buf[0], 0);
 		printf("traffic: java -> linux: %d bytes\n", count);
-
-
 	}
-
 }
 
 void recv_from_server()
@@ -122,34 +94,20 @@ void recv_from_server()
 	for(;;)
 	{
 		int count = recv(linux_sock, buf, sizeof(buf), 0);
-		printf("javaId: %i", javaId);
-		if (count == SOCKET_ERROR)
+		if (count < 1)
 		{
 			sendLeaveMsgToJava(java_sock);
 			closesocket(linux_sock);
 			return;
 		}
-		
-		if (count == 0)
+
+		if (buf[3] == Change && buf[4] == NewPlayer && javaId == UNDEFINED)
 		{
-			sendLeaveMsgToJava(java_sock);
-			closesocket(linux_sock);
-			return;
-		}
-		if (buf[3] == Change)
-		{
-			printf("kom igen nu, ola conny\r\n");
-			if (buf[4] == NewPlayer)
-			{
-				printf("nu tycker jag vi sätter spiken i kistan\r\n");
-				javaId = buf[2];
-				printf("Snyggt byggt, fräsig kärra\r\n");
-			}
+			javaId = buf[2];
 		}
 		send(java_sock, buf, buf[0], 0);
 		printf("traffic: java <- linux: %d bytes\n", count);
 	}
-	printf("printing the value of the id recevied from socket %llu: %i\r\n", linux_sock, buf[2]);
 }
 
 void main()

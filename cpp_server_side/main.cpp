@@ -1,5 +1,4 @@
 #include <iostream>
-#include <ctime>
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -143,7 +142,7 @@ void deserialize(char* buf, MoveEvent* moveEvent) // make a new MoveEvent before
 	moveEvent->pos.y = buf[6];
 }
 
-void sendAll(const char* buf, const int& len, int disconnectedId = -1);
+void sendAll(const char* buf, const int& len);
 
 
 void moved(const int& clientid, const Coordinate& newPos)
@@ -308,21 +307,18 @@ void kicked(const int& clientId)
 		}
 	};
 	char* buf = serialize(&playerLeaveMsg);
-	printf("buf[2]: %i leaveMsg.head.id: %i\r\n", buf[2], playerLeaveMsg.msg.head.id);
-
 	sendAll(buf, playerLeaveMsg.msg.head.length);
 }
 
-void sendAll(const char* buf, const int& len, int disconnectedId)
+void sendAll(const char* buf, const int& len)
 {
 	gameBoard.lock();
 	for (size_t i = 0; i < connections.size(); i++)
 	{
-		printf("Iterations: %llu\r\n", i);
 		int attempt = send(connections[i].client, buf, len, 0);
-		if (attempt == SOCKET_ERROR)
+		if (attempt < 1)
 		{
-			sendAll(buf, len, connections[i].id);
+			closesocket(connections[i].client);
 		}
 	}
 	gameBoard.unlock();
@@ -492,6 +488,7 @@ void joinThreads()
 				try
 				{
 					threads.erase(threads.begin() + i);
+					printf("Connections: %llu\r\n", connections.size());
 				}
 				catch(...)
 				{

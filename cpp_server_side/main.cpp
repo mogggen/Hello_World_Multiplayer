@@ -283,7 +283,7 @@ void joinedAndMoved(const int& clientid)
 					}
 				}
 			}
-			else if (prevNewMsg.size() != connections.size() || prevNewMsg.size() != prevNewPosMsg.size())
+			if (prevNewMsg.size() != connections.size() || prevNewMsg.size() != prevNewPosMsg.size())
 			{
 				std::cerr << "Huh?" << std::endl;
 			}
@@ -320,7 +320,7 @@ void sendAll(const char* buf, const int& len, int disconnectedId)
 	{
 		printf("Iterations: %llu\r\n", i);
 		int attempt = send(connections[i].client, buf, len, 0);
-		if (attempt == SOCKET_ERROR && connections[i].id != disconnectedId)
+		if (attempt == SOCKET_ERROR)
 		{
 			sendAll(buf, len, connections[i].id);
 		}
@@ -421,7 +421,6 @@ void receiving(const SOCKET& s)
 				if (leaveMsg->head.id == connections[i].id)
 				{
 					closesocket(s);
-					WSACleanup();
 					return;
 				}
 			}
@@ -516,10 +515,11 @@ int main()
 			newClient = 0x0; // default value
 			continue;
 		}
-		
+
+		newClientId++;
 		// setting ObjectDesc and ObjectForm to 0
 		connections.push_back({
-			0,
+			newClientId,
 			Human,
 			Cube,
 			first_avalible_Coordinate(),
@@ -530,7 +530,6 @@ int main()
 
 		threads.push_back(std::thread(receiving, connections[last].client));
 
-		newClientId++;
 		joinedAndMoved(newClientId);
 	}
 	closesocket(newClient);

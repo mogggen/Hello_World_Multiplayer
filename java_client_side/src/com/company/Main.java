@@ -132,7 +132,7 @@ public class Main extends JComponent {
     };
 
     static int seqNo = 0;
-    static int id = 0;
+    static int id = -1;
     static byte direction = -1;
 
     enum dir
@@ -290,7 +290,7 @@ public class Main extends JComponent {
             newPlayerMsg.form = ObjectForm.values()[buf[6]];
 
             seqNo = newPlayerMsg.msg.head.seqNo;
-            if (id == 0) {
+            if (id == -1) {
                 id = newPlayerMsg.msg.head.id;
             }
             boolean found = false;
@@ -358,7 +358,7 @@ public class Main extends JComponent {
 
     public static void speak() throws IOException
     {
-        if (id == 0){
+        if (id == -1){
             System.out.println("Caution: Connect to server before attempting to move.");
             return;
         }

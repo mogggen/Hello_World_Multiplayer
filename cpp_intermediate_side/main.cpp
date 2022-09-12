@@ -6,11 +6,13 @@
 
 #include "main.h"
 
+#define UNDEFINED -1
+
 SOCKET java_sock;
 SOCKET linux_sock;
 
 unsigned int seqNo = 0u;
-int javaId = -1;
+int javaId = UNDEFINED;
 
 char* serialize(LeaveMsg* leaveMsg)
 {
@@ -33,32 +35,36 @@ char* serialize(PlayerLeaveMsg* playerLeaveMsg)
 	return q;
 }
 
-void leaveServer(SOCKET sock, const int& clientId)
+void sendLeaveMsgToServer(const SOCKET& sock, const int& clientid)
 {
 	LeaveMsg leaveMsg =
 	{
 		{
 			4,
 			seqNo++,
-			clientId,
+			clientid,
 			Leave
 		}
 	};
 	char* buf = serialize(&leaveMsg);
 	printf("buf[2]: %i leaveMsg.head.id: %i\r\n", buf[2], leaveMsg.head.id);
+	if (javaId == UNDEFINED)
+		printf("Den får ju aldrig ens ett jävla fitt värde\r\n");
 	send(sock, buf, leaveMsg.head.length, 0);
 }
 
-void leaveClient(SOCKET sock, const int& clientId)
+void sendLeaveMsgToJava(const SOCKET& sock)
 {
-	printf("PlayerLeaveMsg id: %i\r\n", clientId);
-	PlayerLeaveMsg playerLeaveMsg = 
+	printf("PlayerLeaveMsg id: %i\r\n", javaId);
+	if (javaId == UNDEFINED)
+		printf("VAD FAN I HELASTE HELVETE\r\n");
+	PlayerLeaveMsg playerLeaveMsg =
 	{
 		{
 			{
 				5,
 				seqNo++,
-				clientId,
+				javaId,
 				Change
 			},
 			PlayerLeave
@@ -74,29 +80,37 @@ void recv_from_java()
 	for(;;)
 	{
 		int count = recv(java_sock, buf, sizeof(buf), 0);
-
+		// FITT HOoOoOoR UNGE
+		printf("javaId: %i", javaId);
 		if (count == SOCKET_ERROR)
 		{
-			leaveServer(linux_sock, buf[2]);
+			sendLeaveMsgToServer(linux_sock, javaId);
 			closesocket(java_sock);
 			return;
 		}
 
 		if (count == 0)
 		{
-			leaveServer(linux_sock, buf[2]);
+			sendLeaveMsgToServer(linux_sock, javaId);
 			closesocket(java_sock);
 			return;
 		}
 
-		
+		if (buf[3] == Change)
+		{
+			printf("ChangeType Change så jävla äckligt snyggt\r\n");
+			if (buf[4] == PlayerLeave)
+			{
+				printf("såja, bra där Einar\r\n");
+				javaId = buf[2];
+				printf("nu är javaId fanskapet: %i\r\n", javaId);
+			}
+		}
+
 		send(linux_sock, buf, buf[0], 0);
 		printf("traffic: java -> linux: %d bytes\n", count);
 
-		if (buf[3] == Join)
-		{
-			javaId = buf[2];
-		}
+
 	}
 
 }
@@ -108,19 +122,29 @@ void recv_from_server()
 	for(;;)
 	{
 		int count = recv(linux_sock, buf, sizeof(buf), 0);
-		printf("recevied id: %i\r\n", buf[2]);
+		printf("javaId: %i", javaId);
 		if (count == SOCKET_ERROR)
 		{
-			leaveClient(java_sock, buf[2]);
+			sendLeaveMsgToJava(java_sock);
 			closesocket(linux_sock);
 			return;
 		}
 		
 		if (count == 0)
 		{
-			leaveClient(java_sock, buf[2]);
+			sendLeaveMsgToJava(java_sock);
 			closesocket(linux_sock);
 			return;
+		}
+		if (buf[3] == Change)
+		{
+			printf("kom igen nu, ola conny\r\n");
+			if (buf[4] == NewPlayer)
+			{
+				printf("nu tycker jag vi sätter spiken i kistan\r\n");
+				javaId = buf[2];
+				printf("Snyggt byggt, fräsig kärra\r\n");
+			}
 		}
 		send(java_sock, buf, buf[0], 0);
 		printf("traffic: java <- linux: %d bytes\n", count);

@@ -152,9 +152,7 @@ void main()
 			WSACleanup();
 			return;
 		}
-		//printf("Java socket connected\n");
 	}
-	//system("pause");
 
 	// setup linux socket
 	{
@@ -191,7 +189,6 @@ void main()
 			WSACleanup();
 			return;
 		}
-		//printf("Linux socket connected\n");
 	}
 
 	threads[0] = std::thread(recv_from_java);

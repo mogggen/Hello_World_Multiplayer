@@ -319,6 +319,7 @@ void sendAll(const char* buf, const int& len)
 		if (attempt < 1)
 		{
 			closesocket(connections[i].client);
+			kicked(connections[i].id);
 		}
 	}
 	gameBoard.unlock();
@@ -366,7 +367,7 @@ void receiving(const SOCKET& s)
 	while (true)
 	{
 		int count = recv(s, buf, sizeof(buf), 0);
-		if (count == SOCKET_ERROR)
+		if (count < 1)
 		{
 			closesocket(s);
 			return;
@@ -379,18 +380,18 @@ void receiving(const SOCKET& s)
 		MoveEvent* moveEvent = new MoveEvent();
 		deserialize(buf, moveEvent);
 
-		printf("\r\nMsgType: ");
 		switch (joinMsg->head.type)
 		{
 		case Join:
-			printf("join");
+			printf("MsgType: join\r\n");
 			break;
 
 		case Leave:
-			printf("Leave");
+			printf("MsgType: Leave\r\n");
+			break;
 
 		case Event:
-			printf("Event");
+			printf("MsgType: Event\r\n");
 		default:
 			break;
 		}
@@ -416,11 +417,12 @@ void receiving(const SOCKET& s)
 			{
 				if (leaveMsg->head.id == connections[i].id)
 				{
-					closesocket(s);
+					closesocket(connections[i].client);
+					connections.erase(connections.begin() + i);
+					kicked(leaveMsg->head.id);
 					return;
 				}
 			}
-			kicked(leaveMsg->head.id);
 			break;
 
 		case Event:
